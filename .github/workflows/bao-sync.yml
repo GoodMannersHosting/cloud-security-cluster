@@ -27,7 +27,7 @@ env:
   GITHUB_REPOSITORY: GoodMannersHosting/aws-security-cluster
   GITHUB_REF: refs/heads/main
   JWT_ROLE: github-actions-ci
-  BAO_CLI_VERSION: "2.6.0"
+  BAO_CLI_VERSION: "2.6.1"
 
 jobs:
   sync:
