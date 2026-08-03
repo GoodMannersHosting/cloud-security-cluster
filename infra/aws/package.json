@@ -2,8 +2,8 @@
   "name": "keeper-aws-infra",
   "main": "index.ts",
   "devDependencies": {
-    "@types/node": "^20",
-    "typescript": "^5"
+    "@types/node": "20.19.43",
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "@pulumi/aws": "^6.81",
