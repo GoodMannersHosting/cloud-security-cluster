@@ -66,12 +66,28 @@ print(json.dumps(doc))
 PY
 }
 
+write_kubernetes_role() {
+  if [[ ! -f "$ROOT/kubernetes/labops-eso-litellm.json" ]]; then
+    return
+  fi
+  local mount="${BAO_K8S_MOUNT:-kubernetes-labops}"
+  local role="${BAO_K8S_ROLE:-eso-litellm}"
+  echo "==> kubernetes role ${role}"
+  # ci-sync can't list auth mounts to check first (no sys/auth capability), so
+  # this fails soft: until bao/setup-kubernetes-auth.sh has been run once to
+  # enable the mount, this write 404s and other syncs shouldn't be blocked on it.
+  if ! bao write "auth/${mount}/role/${role}" @"$ROOT/kubernetes/labops-eso-litellm.json"; then
+    echo "warn: could not write auth/${mount}/role/${role} (mount not enabled yet? run bao/setup-kubernetes-auth.sh)" >&2
+  fi
+}
+
 main() {
   command -v bao >/dev/null 2>&1 || die "missing bao CLI"
   require_token
   write_policies
   write_oidc_roles
   write_jwt_ci_role
+  write_kubernetes_role
   echo "done"
 }
 

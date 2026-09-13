@@ -21,6 +21,7 @@ check_json_files() {
   for f in \
     "$ROOT"/roles/*.json \
     "$ROOT"/jwt/*.json \
+    "$ROOT"/kubernetes/*.json \
     "$ROOT"/identity/groups/*.json; do
     [[ -f "$f" ]] || continue
     python3 -c "import json, sys; json.load(open(sys.argv[1]))" "$f"
@@ -55,6 +56,12 @@ for path in sorted((root / "jwt").glob("*.json")):
 for path in sorted((root / "identity" / "groups").glob("*.json")):
     doc = load(path)
     for key in ("name", "type", "policies"):
+        if key not in doc:
+            sys.exit(f"missing {key} in {path}")
+
+for path in sorted((root / "kubernetes").glob("*.json")):
+    doc = load(path)
+    for key in ("bound_service_account_names", "bound_service_account_namespaces", "policies"):
         if key not in doc:
             sys.exit(f"missing {key} in {path}")
 PY

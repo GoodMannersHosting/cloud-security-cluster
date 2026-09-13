@@ -1,0 +1,6 @@
+{
+  "bound_service_account_names": ["vault-litellm-reader"],
+  "bound_service_account_namespaces": ["aiml"],
+  "policies": ["eso-labops-litellm"],
+  "ttl": "15m"
+}
