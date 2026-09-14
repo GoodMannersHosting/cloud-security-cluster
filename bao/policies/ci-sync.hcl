@@ -28,7 +28,7 @@ path "auth" {
 }
 
 # Namespace-specific policy sync (all namespaces)
-path "namespace/*/policies/acl/*" {
+path "namespace/*/sys/policies/acl/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 
