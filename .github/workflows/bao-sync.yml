@@ -28,7 +28,7 @@ env:
   GITHUB_JWT_AUDIENCE: https://github.com/GoodMannersHosting
   GITHUB_REPOSITORY: "${{ github.repository }}"
   GITHUB_REF: "${{ github.ref }}"
-  JWT_ROLE: test-github
+  JWT_ROLE: github-actions-ci
   BAO_CLI_VERSION: "2.6.2"
 
 jobs:
