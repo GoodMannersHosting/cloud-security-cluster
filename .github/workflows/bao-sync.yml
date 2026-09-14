@@ -6,6 +6,7 @@ on:
     paths:
       - "bao/policies/**"
       - "bao/roles/**"
+      - "bao/namespaces/**"
       - "bao/jwt/**"
       - "bao/kubernetes/**"
       - "bao/sync-from-git.sh"
