@@ -26,3 +26,16 @@ path "identity/group/name/*" {
 path "auth" {
   capabilities = ["read"]
 }
+
+# Namespace-specific policy sync (all namespaces)
+path "namespace/*/policies/acl/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "namespace/*/auth/+/role/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "namespace/*/auth/+/config" {
+  capabilities = ["read"]
+}
