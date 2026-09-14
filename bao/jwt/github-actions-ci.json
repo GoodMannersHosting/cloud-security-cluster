@@ -2,7 +2,6 @@
   "role_type": "jwt",
   "user_claim": "sub",
   "bound_audiences": ["https://github.com/GoodMannersHosting"],
-  "bound_subject": "repo:GoodMannersHosting@88983444/cloud-security-cluster@1166064097:ref:refs/heads/main",
   "bound_claims": {
     "repository": "GoodMannersHosting/cloud-security-cluster",
     "ref": "refs/heads/main"

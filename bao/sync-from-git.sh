@@ -70,8 +70,13 @@ ref = os.environ["GITHUB_REF"]
 aud = os.environ["GITHUB_JWT_AUDIENCE"]
 doc = json.loads((root / "jwt/github-actions-ci.json").read_text())
 doc["bound_audiences"] = [aud]
-doc["bound_subject"] = f"repo:{repo}:ref:{ref}"
+# GitHub now uses immutable subject claims (e.g. repo:owner@id/repo@id:ref:refs/heads/main)
+# We can't generate these without the owner/repo IDs, so use bound_claims instead.
 doc["bound_claims"] = {"repository": repo, "ref": ref}
+doc["bound_claims_type"] = "string"
+# Remove bound_subject since we can't generate the immutable format
+if "bound_subject" in doc:
+    del doc["bound_subject"]
 print(json.dumps(doc))
 PY
 }
