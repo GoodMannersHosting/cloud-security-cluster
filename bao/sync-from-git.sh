@@ -105,7 +105,7 @@ write_namespace_policies() {
     [[ -f "$policy" ]] || continue
     name="$(basename "$policy" .hcl)"
     echo "  writing $name"
-    bao -address="$ns_addr" -token="$BAO_TOKEN" policy write "$name" "$policy"
+    bao -address="$ns_addr" -token="$BAO_TOKEN" write "sys/policies/acl/$name" "policy=@$policy"
   done
 }
 
