@@ -90,10 +90,11 @@ write_kubernetes_role() {
   fi
 }
 
-# Write namespace-specific policies
+# Write namespace-specific policies using namespace path prefix
 write_namespace_policies() {
   local ns="$1"
   local ns_dir="$ROOT/namespaces/$ns"
+  local ns_addr="${BAO_ADDR}/namespace/$ns"
   
   echo "==> policies ($ns)"
   if [[ ! -d "$ns_dir/policies" ]]; then
@@ -103,14 +104,16 @@ write_namespace_policies() {
   for policy in "$ns_dir/policies/"*.hcl; do
     [[ -f "$policy" ]] || continue
     name="$(basename "$policy" .hcl)"
-    bao policy write -namespace="$ns" "$name" "$policy"
+    echo "  writing $name"
+    bao -address="$ns_addr" -token="$BAO_TOKEN" policy write "$name" "$policy"
   done
 }
 
-# Write namespace-specific OIDC roles
+# Write namespace-specific OIDC roles using namespace path prefix
 write_namespace_oidc_roles() {
   local ns="$1"
   local ns_dir="$ROOT/namespaces/$ns"
+  local ns_addr="${BAO_ADDR}/namespace/$ns"
   
   echo "==> oidc roles ($ns)"
   [[ -n "${AUTHENTIK_CLIENT_ID:-}" ]] || {
@@ -124,8 +127,9 @@ write_namespace_oidc_roles() {
   for role_file in "$ns_dir/roles/"*.json; do
     [[ -f "$role_file" ]] || continue
     role="$(basename "$role_file" .json)"
+    echo "  writing $role"
     subst_client_id "$role_file" "$AUTHENTIK_CLIENT_ID" \
-      | bao write -namespace="$ns" "auth/oidc/role/${role}" -
+      | bao -address="$ns_addr" -token="$BAO_TOKEN" write "auth/oidc/role/${role}" -
   done
 }
 
