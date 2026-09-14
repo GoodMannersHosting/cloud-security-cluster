@@ -34,3 +34,4 @@ stacks/ops/aws/ca.srl
 
 # Git worktrees (local feature checkouts)
 .worktrees/
+.backup-2026-09-13/
