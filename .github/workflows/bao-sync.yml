@@ -26,8 +26,8 @@ env:
   BAO_ADDR: https://keeper.goodmanners.services
   GITHUB_JWT_MOUNT: jwt
   GITHUB_JWT_AUDIENCE: https://github.com/GoodMannersHosting
-  GITHUB_REPOSITORY: GoodMannersHosting/aws-security-cluster
-  GITHUB_REF: refs/heads/main
+  GITHUB_REPOSITORY: "${{ github.repository }}"
+  GITHUB_REF: "${{ github.ref }}"
   JWT_ROLE: github-actions-ci
   BAO_CLI_VERSION: "2.6.2"
 
