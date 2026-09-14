@@ -29,7 +29,6 @@ env:
   GITHUB_REPOSITORY: "${{ github.repository }}"
   GITHUB_REF: "${{ github.ref }}"
   JWT_ROLE: github-actions-ci
-  BAO_CLI_VERSION: "2.6.2"
 
 jobs:
   sync:
@@ -39,15 +38,6 @@ jobs:
 
       - name: Validate manifests (pre-auth)
         run: bash bao/validate-sync.sh
-
-      - name: Install OpenBao CLI
-        run: |
-          set -euo pipefail
-          curl -fsSL -o openbao.deb \
-            "https://github.com/openbao/openbao/releases/download/v${BAO_CLI_VERSION}/openbao_${BAO_CLI_VERSION}_linux_amd64.deb"
-          sudo dpkg -i openbao.deb
-          bao version
-          bash bao/validate-sync.sh
 
       - name: Authenticate to OpenBao (GitHub OIDC)
         env:
@@ -105,9 +95,12 @@ jobs:
 
       - name: Post-sync smoke test
         env:
+          BAO_ADDR: ${{ env.BAO_ADDR }}
           BAO_TOKEN: ${{ env.VAULT_TOKEN }}
         run: |
           set -euo pipefail
-          bao policy read ci-sync >/dev/null
-          bao read "auth/${GITHUB_JWT_MOUNT}/role/${JWT_ROLE}" >/dev/null
+          curl -s -f "${BAO_ADDR}/v1/sys/policies/acl/ci-sync" \
+            -H "X-Vault-Token: ${BAO_TOKEN}" >/dev/null
+          curl -s -f "${BAO_ADDR}/v1/auth/${GITHUB_JWT_MOUNT}/role/${JWT_ROLE}" \
+            -H "X-Vault-Token: ${BAO_TOKEN}" >/dev/null
           echo "smoke ok"
