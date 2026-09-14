@@ -1,10 +1,9 @@
 {
   "role_type": "jwt",
-  "user_claim": "sub",
+  "user_claim": "actor",
   "bound_audiences": ["https://github.com/GoodMannersHosting"],
   "bound_claims": {
-    "repository": "GoodMannersHosting/cloud-security-cluster",
-    "ref": "refs/heads/main"
+    "repository": "GoodMannersHosting/cloud-security-cluster"
   },
   "bound_claims_type": "string",
   "token_policies": ["ci-sync"],
