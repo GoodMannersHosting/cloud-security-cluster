@@ -59,21 +59,17 @@ write_jwt_ci_role() {
   local role="${BAO_CI_ROLE:-github-actions-ci}"
   echo "==> jwt role ${role}"
   export ROOT
-  export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-GoodMannersHosting/aws-security-cluster}"
-  export GITHUB_REF="${GITHUB_REF:-refs/heads/main}"
   export GITHUB_JWT_AUDIENCE="${GITHUB_JWT_AUDIENCE:-${BAO_OIDC_AUDIENCE:-https://github.com/GoodMannersHosting}}"
   python3 - <<PY | bao write "auth/${BAO_AUTH_MOUNT}/role/${role}" -
 import json, os, pathlib
 root = pathlib.Path(os.environ["ROOT"])
-repo = os.environ["GITHUB_REPOSITORY"]
-ref = os.environ["GITHUB_REF"]
 aud = os.environ["GITHUB_JWT_AUDIENCE"]
 doc = json.loads((root / "jwt/github-actions-ci.json").read_text())
 doc["bound_audiences"] = [aud]
-# GitHub now uses immutable subject claims (e.g. repo:owner@id/repo@id:ref:refs/heads/main)
-# We can't generate these without the owner/repo IDs, so use bound_claims instead.
-doc["bound_claims"] = {"repository": repo, "ref": ref}
-doc["bound_claims_type"] = "string"
+# Use bound_claims from the JSON file (contains correct repository and ref)
+# GitHub now uses immutable subject claims, so we don't set bound_subject.
+if "bound_claims" in doc:
+    doc["bound_claims_type"] = "string"
 # Remove bound_subject since we can't generate the immutable format
 if "bound_subject" in doc:
     del doc["bound_subject"]
