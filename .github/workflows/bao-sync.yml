@@ -55,12 +55,11 @@ jobs:
         run: |
           set -euo pipefail
           # Request OIDC token from GitHub with the configured audience
-          OIDC_TOKEN=$(curl -s "${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}&audience=${GITHUB_JWT_AUDIENCE}" \
+          OIDC_RESPONSE=$(curl -s "${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}&audience=${GITHUB_JWT_AUDIENCE}" \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
-          echo "OIDC token length: $(echo -n $OIDC_TOKEN | wc -c)"
-          echo "OIDC token starts with: $(echo -n $OIDC_TOKEN | head -c 20)"
-          
-          echo "Got OIDC token from GitHub"
+          # GitHub returns JSON with the token in the "value" field
+          OIDC_TOKEN=$(echo "$OIDC_RESPONSE" | jq -r '.value')
+          echo "Got OIDC token from GitHub (length: $(echo -n $OIDC_TOKEN | wc -c))"
           
           # Exchange OIDC token for OpenBao token via API
           PAYLOAD=$(jq -n --arg role "${JWT_ROLE}" --arg jwt "${OIDC_TOKEN}" '{role: $role, jwt: $jwt}')
