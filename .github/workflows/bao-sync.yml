@@ -74,7 +74,7 @@ jobs:
       - name: Apply policies and roles
         env:
           AUTHENTIK_CLIENT_ID: ${{ secrets.AUTHENTIK_CLIENT_ID }}
-          BAO_TOKEN: ${{ env.VAULT_TOKEN }}
+          BAO_TOKEN: ${{ env.BAO_TOKEN }}
         run: bash bao/sync-from-git.sh
 
       - name: Post-sync smoke test
