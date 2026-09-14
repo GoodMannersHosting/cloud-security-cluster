@@ -55,11 +55,25 @@ jobs:
         run: |
           set -euo pipefail
           # Request OIDC token from GitHub with the configured audience
-          OIDC_RESPONSE=$(curl -s "${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}&audience=${GITHUB_JWT_AUDIENCE}" \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+          echo "Requesting OIDC token from GitHub..."
+          echo "OIDC URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
+          echo "OIDC Token length: ${#ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
+          echo "OIDC Audience: $GITHUB_JWT_AUDIENCE"
+          OIDC_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${GITHUB_JWT_AUDIENCE}" \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            --max-time 30)
+          OIDC_HTTP_CODE=$(echo "$OIDC_RESPONSE" | grep -oP 'HTTP_CODE:\K\d+')
+          OIDC_BODY=$(echo "$OIDC_RESPONSE" | grep -v 'HTTP_CODE:')
+          echo "OIDC HTTP code: $OIDC_HTTP_CODE"
+          echo "OIDC body length: $(echo -n "$OIDC_BODY" | wc -c)"
           # GitHub returns JSON with the token in the "value" field
-          OIDC_TOKEN=$(echo "$OIDC_RESPONSE" | jq -r '.value')
+          OIDC_TOKEN=$(echo "$OIDC_BODY" | jq -r '.value // ""')
           echo "Got OIDC token from GitHub (length: $(echo -n $OIDC_TOKEN | wc -c))"
+          if [[ ${#OIDC_TOKEN} -eq 0 ]]; then
+            echo "WARNING: OIDC token is empty! Full response:"
+            echo "$OIDC_BODY" | head -c 1000
+          fi
           
           # Exchange OIDC token for OpenBao token via API
           PAYLOAD=$(jq -n --arg role "${JWT_ROLE}" --arg jwt "${OIDC_TOKEN}" '{role: $role, jwt: $jwt}')
