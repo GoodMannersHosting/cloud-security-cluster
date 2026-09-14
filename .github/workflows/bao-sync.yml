@@ -57,6 +57,8 @@ jobs:
           # Request OIDC token from GitHub with the configured audience
           OIDC_TOKEN=$(curl -s "${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}&audience=${GITHUB_JWT_AUDIENCE}" \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+          echo "OIDC token length: $(echo -n $OIDC_TOKEN | wc -c)"
+          echo "OIDC token starts with: $(echo -n $OIDC_TOKEN | head -c 20)"
           
           echo "Got OIDC token from GitHub"
           
