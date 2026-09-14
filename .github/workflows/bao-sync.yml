@@ -65,6 +65,7 @@ jobs:
           RESPONSE=$(curl -s -X POST ${BAO_ADDR}/v1/auth/jwt/login \
             -H "Content-Type: application/json" \
             -d "{\"role\": \"${JWT_ROLE}\", \"jwt\": \"${OIDC_TOKEN}\"}")
+          echo "Response: $RESPONSE" >> $GITHUB_STEP_SUMMARY
           BAO_TOKEN=$(echo "$RESPONSE" | jq -r '.auth.client_token')
           echo "BAO_TOKEN=$BAO_TOKEN" >> $GITHUB_ENV
           echo "Authenticated to OpenBao"
