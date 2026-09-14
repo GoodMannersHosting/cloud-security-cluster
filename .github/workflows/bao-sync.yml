@@ -61,9 +61,10 @@ jobs:
           echo "Got OIDC token from GitHub"
           
           # Exchange OIDC token for OpenBao token via API
+          PAYLOAD=$(jq -n --arg role "${JWT_ROLE}" --arg jwt "${OIDC_TOKEN}" '{role: $role, jwt: $jwt}')
           RESPONSE=$(curl -s -X POST ${BAO_ADDR}/v1/auth/jwt/login \
             -H "Content-Type: application/json" \
-            -d "{\"role\": \"${JWT_ROLE}\", \"jwt\": \"${OIDC_TOKEN}\"}")
+            -d "$PAYLOAD")
           echo "JWT login response:"
           echo "$RESPONSE"
           BAO_TOKEN=$(echo "$RESPONSE" | jq -r '.auth.client_token')
