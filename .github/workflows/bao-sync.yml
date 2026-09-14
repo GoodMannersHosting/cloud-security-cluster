@@ -50,15 +50,23 @@ jobs:
           bash bao/validate-sync.sh
 
       - name: Authenticate to OpenBao (GitHub OIDC)
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ env.BAO_ADDR }}
-          method: jwt
-          path: ${{ env.GITHUB_JWT_MOUNT }}
-          role: ${{ env.JWT_ROLE }}
-          jwtGithubAudience: ${{ env.GITHUB_JWT_AUDIENCE }}
-          exportToken: true
-          exportEnv: false
+        env:
+          BAO_ADDR: ${{ env.BAO_ADDR }}
+        run: |
+          set -euo pipefail
+          # Request OIDC token from GitHub with the configured audience
+          REQUEST_URL="${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}"
+          OIDC_TOKEN=$(curl -s "$REQUEST_URL&audience=${GITHUB_JWT_AUDIENCE}" \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+          
+          echo "Got OIDC token from GitHub"
+          
+          # Exchange OIDC token for OpenBao token
+          BAO_TOKEN=$(echo "$OIDC_TOKEN" | bao login -method=jwt role=${JWT_ROLE} -format=json | jq -r '.auth.client_token')
+          echo "BAO_TOKEN=$BAO_TOKEN" >> $GITHUB_ENV
+          echo "Authenticated to OpenBao"
+
+
 
       - name: Apply policies and roles
         env:
