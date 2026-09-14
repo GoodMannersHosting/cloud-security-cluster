@@ -39,15 +39,21 @@ put_policy() {
   fi
   
   echo "  writing policy $name${path_prefix:+ to $ns_path}"
-  local policy_content
-  policy_content=$(cat "$policy_file")
+  
+  local json_body
+  json_body=$(python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    content = f.read()
+print(json.dumps({'policy': content}))
+" "$policy_file")
   
   local response
   response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
     "${BAO_ADDR}/v1${path_prefix}/sys/policies/acl/${name}" \
     -H "X-Vault-Token: ${BAO_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"policy\": \"${policy_content}\"}" \
+    -d "$json_body" \
     --max-time 30)
   
   local http_code
