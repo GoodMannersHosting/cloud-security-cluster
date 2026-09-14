@@ -90,11 +90,10 @@ write_kubernetes_role() {
   fi
 }
 
-# Write namespace-specific policies using namespace path prefix
+# Write namespace-specific policies using API path prefix
 write_namespace_policies() {
   local ns="$1"
   local ns_dir="$ROOT/namespaces/$ns"
-  local ns_addr="${BAO_ADDR}/namespace/$ns"
   
   echo "==> policies ($ns)"
   if [[ ! -d "$ns_dir/policies" ]]; then
@@ -105,7 +104,8 @@ write_namespace_policies() {
     [[ -f "$policy" ]] || continue
     name="$(basename "$policy" .hcl)"
     echo "  writing $name"
-    bao -address="$ns_addr" -token="$BAO_TOKEN" write "sys/policies/acl/$name" "policy=@$policy"
+    bao -address="${BAO_ADDR}" -token="$BAO_TOKEN" write \
+      "namespace/$ns/sys/policies/acl/$name" "policy=@$policy"
   done
 }
 
