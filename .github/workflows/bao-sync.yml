@@ -55,8 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           # Request OIDC token from GitHub with the configured audience
-          REQUEST_URL="${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}"
-          OIDC_TOKEN=$(curl -s "$REQUEST_URL&audience=${GITHUB_JWT_AUDIENCE}" \
+          OIDC_TOKEN=$(curl -s "${ACTIONS_ID_TOKEN_REQUEST_URL//&/\\&}&audience=${GITHUB_JWT_AUDIENCE}" \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
           
           echo "Got OIDC token from GitHub"
