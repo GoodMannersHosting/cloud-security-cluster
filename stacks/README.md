@@ -30,7 +30,7 @@ sudo bash /opt/hcloud-security-cluster/stacks/doco-cd/install-prod.sh
 - **`age`** and **`sops`** on the host for encrypting secrets into git
 
 ```bash
-sudo mkdir -p /mnt/data/postgres/openbao /mnt/data/openbao /mnt/data/postgres/powerdns /mnt/data/poweradmin/config /var/log/traefik
+sudo mkdir -p /mnt/data/postgres/openbao /mnt/data/openbao /mnt/data/postgres/powerdns /mnt/data/poweradmin/config /var/log/traefik /opt/stacks/dnsweaver/aws
 sudo chown -R 70:70 /mnt/data/postgres/powerdns
 sudo chown -R 82:82 /mnt/data/poweradmin
 sudo touch /var/log/traefik/access.log
@@ -52,7 +52,8 @@ docker exec -it powerdns-postgresql \
   psql -U "$POSTGRES_USER" -c "CREATE DATABASE poweradmin OWNER $POSTGRES_USER"
 ```
 
-5. **alloy** — metrics/logs collector (remote_write + Loki push; no local Grafana)
+5. **dnsweaver** — watches Traefik labels and writes matching A records into the Route53 zone via `route53-dnsweaver-webhook`
+6. **alloy** — metrics/logs collector (remote_write + Loki push; no local Grafana)
 
 **Doco-CD** is host-managed (`install-prod.sh` / `cold-start-doco-cd.sh`), not a GitOps deploy target in `.doco-cd.yml`.
 
@@ -60,7 +61,7 @@ After Doco-CD is up, use **`stacks/ops/reconcile-gitops.sh`** (or push to `main`
 
 ## Secrets (GitOps + SOPS)
 
-1. **In git:** `stacks/{traefik,authentik,openbao,powerdns,doco-cd,alloy}/secrets.enc.env` encrypted with age (see **`.sops.yaml`**).
+1. **In git:** `stacks/{traefik,authentik,openbao,powerdns,dnsweaver,doco-cd,alloy}/secrets.enc.env` encrypted with age (see **`.sops.yaml`**).
 2. **On keeper only:** `/opt/stacks/doco-cd/sops_age_key.txt` — Doco-CD mounts this via `compose.sops.yaml` and decrypts env files at deploy time.
 3. **Rotate or add a secret:** edit `/opt/stacks/<stack>/.env` on keeper, then:
 
@@ -190,6 +191,78 @@ sudo stacks/ops/encrypt-stack-secrets.sh
 
 Alloy UI listens on **127.0.0.1:12345** inside the container only (not exposed via Traefik).
 
+## Automatic DNS (dnsweaver + Route53)
+
+`goodmanners.services` is a Route53 zone. **`stacks/dnsweaver`** removes the manual step of adding an A record for each new service: [dnsweaver](https://github.com/maxfield-allison/dnsweaver) reads `Host(...)` out of Traefik router labels over its own socket-proxy, and [`route53-dnsweaver-webhook`](https://github.com/GoodMannersHosting/route53-dnsweaver-webhook) applies the result to the zone. Neither container is routed through Traefik and neither publishes a port.
+
+A container with a normal Traefik router label needs nothing extra. To override the target for one container, add dnsweaver's own labels:
+
+```yaml
+labels:
+  - dnsweaver.records.myapp.hostname=myapp.goodmanners.services
+  - dnsweaver.records.myapp.type=A
+  - dnsweaver.records.myapp.target=203.0.113.42
+```
+
+### IAM (Pulumi)
+
+Route53 IAM and the GitHub Actions OIDC deploy role live in **`infra/aws`** (stack `prod`), separate from the Hetzner Pulumi project. The managed policy is zone-scoped (`ChangeResourceRecordSets`, `ListResourceRecordSets`, `GetHostedZone` on the `goodmanners.services` zone ARN, plus `ListHostedZones*` for SDK discovery).
+
+**Bootstrap once** with an admin AWS principal (chicken-and-egg: GHA cannot create its own role until this exists):
+
+```bash
+cd infra/aws
+npm ci
+pulumi stack select prod   # or: pulumi stack init prod
+# If the account already has a GitHub OIDC provider:
+#   pulumi config set githubOidcProviderArn arn:aws:iam::ACCOUNT:oidc-provider/token.actions.githubusercontent.com
+# Optional Roles Anywhere role for the webhook:
+#   pulumi config set rolesAnywhereTrustAnchorArn arn:aws:rolesanywhere:us-east-1:ACCOUNT:trust-anchor/TA_ID
+pulumi up
+```
+
+Copy the access key into the host env (never commit plaintext):
+
+```bash
+pulumi stack output route53HostedZoneId
+pulumi stack output dnsweaverAccessKeyId
+pulumi stack output dnsweaverSecretAccessKey --show-secrets
+# set ROUTE53_HOSTED_ZONE_ID, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in /opt/stacks/dnsweaver/.env
+sudo /opt/hcloud-security-cluster/stacks/ops/encrypt-stack-secrets.sh
+```
+
+Then wire CI:
+
+1. Repo **variable** `AWS_DEPLOY_ROLE_ARN` = `pulumi stack output githubActionsDeployRoleArn`
+2. Subsequent changes under `infra/aws/**` apply via [`.github/workflows/aws-infra.yml`](../.github/workflows/aws-infra.yml) using GitHub OIDC (`id-token: write`) against the S3 state backend `s3://pulumi-state-2e089842` and KMS `alias/pulumi-state` — no Pulumi Cloud token and no long-lived AWS keys in Actions
+3. First apply the stack locally (so the deploy role exists with S3/KMS permissions), set `AWS_DEPLOY_ROLE_ARN`, then rely on CI
+
+For Roles Anywhere instead of static keys: leave `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` blank, set `rolesAnywhereTrustAnchorArn` before `pulumi up`, point a profile in **`DNSWEAVER_AWS_CREDS_DIR`** at role ARN `dnsweaverRolesAnywhereRoleArn` (see **`stacks/ops/aws/credentials.example`**). The webhook image is distroless and runs as uid **65532**:
+
+```bash
+sudo chown -R 65532:65532 /opt/stacks/dnsweaver/aws
+sudo chmod 0600 /opt/stacks/dnsweaver/aws/credentials
+```
+
+### Rollout
+
+```bash
+sudo mkdir -p /opt/stacks/dnsweaver/aws
+sudo cp stacks/dnsweaver/.env.example /opt/stacks/dnsweaver/.env
+sudo chmod 0600 /opt/stacks/dnsweaver/.env
+openssl rand -hex 32                        # paste as DNSWEAVER_WEBHOOK_TOKEN
+sudoedit /opt/stacks/dnsweaver/.env         # token, hosted zone id, AWS credentials
+sudo stacks/ops/encrypt-stack-secrets.sh
+```
+
+**`DNSWEAVER_DRY_RUN=true`** ships as the default. Deploy, read `docker logs dnsweaver`, confirm the proposed records match the zone, then set it to `false` and re-encrypt.
+
+**`DNSWEAVER_ADOPT_EXISTING=false`** is also the default, so the hostnames already in the zone (`auth`, `keeper`, `pdns`, `poweradmin`, `traefik`, `doco-cd`) stay under manual control. dnsweaver writes an ownership TXT beside each record it creates and only ever modifies or deletes those.
+
+### Deletion and negative caching
+
+**`DNSWEAVER_CLEANUP_ON_STOP=true`** deletes a record when its container stops, which includes the stop half of every Doco-CD redeploy. The zone's SOA minimum is currently **86400**, so a resolver that queries during that gap caches NXDOMAIN for up to a day. Lower the SOA minimum field (last value in the record) to `60` in the Route53 console before enabling cleanup on any hostname that matters, or set `DNSWEAVER_CLEANUP_ON_STOP=false` and let `DNSWEAVER_CLEANUP_ORPHANS` reap records on the reconcile pass instead.
+
 ## Security notes
 
 - Authentik **worker** uses **`DOCKER_HOST=tcp://socket-proxy:2375`** (no raw docker.sock). Traefik uses its own socket-proxy service (`traefik-socket-proxy` container) on the same pattern.
@@ -200,6 +273,7 @@ Alloy UI listens on **127.0.0.1:12345** inside the container only (not exposed v
 - **`stacks/ops/fix-fail2ban-ssh.sh`** — avoid SSH lockout; maintain **`admin-ips.txt`**.
 
 - **Alloy** mounts **docker.sock** read-only for log discovery (same class of access as Doco-CD; no public UI).
+- **dnsweaver** reaches Docker through its own `dnsweaver-socket-proxy` (`CONTAINERS`, `EVENTS`, `INFO`, `PING` only) on an `internal` network with no egress. The Route53 webhook sits on a separate network and never sees the Docker API.
 
 OpenBao policy and OIDC files: repo root **`bao/`**.
 

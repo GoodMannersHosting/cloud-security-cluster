@@ -41,7 +41,7 @@ encrypt_stack() {
   log "encrypted ${plain} -> ${out}"
 }
 
-for stack in traefik authentik openbao powerdns alloy doco-cd; do
+for stack in traefik authentik openbao powerdns dnsweaver alloy doco-cd; do
   encrypt_stack "${stack}"
 done
 

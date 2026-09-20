@@ -7,6 +7,9 @@ const config = new pulumi.Config();
 const baoRoot = path.resolve(__dirname, "../../bao");
 const address = config.get("address") ?? "https://keeper.goodmanners.services";
 const authentikClientId = config.requireSecret("authentikClientId");
+// VAULT_TOKEN is set by the CI auth step (or locally via `export VAULT_TOKEN=...`).
+// @pulumi/vault v6 requires token to be passed explicitly in ProviderArgs.
+const vaultToken = process.env["VAULT_TOKEN"] ?? "";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +52,7 @@ function jsonFiles(dir: string): string[] {
 // ─── Root namespace ───────────────────────────────────────────────────────────
 // VAULT_TOKEN is read from env by the provider automatically.
 
-const rootProvider = new vault.Provider("root", { address });
+const rootProvider = new vault.Provider("root", { address, token: vaultToken });
 
 // Policies
 const rootPoliciesDir = path.join(baoRoot, "policies");
@@ -121,7 +124,7 @@ function setupNamespace(
   opts: { k8s?: K8sConfig } = {}
 ): void {
   const nsDir = path.join(baoRoot, "namespaces", ns);
-  const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns });
+  const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns, token: vaultToken });
 
   // Policies
   const policiesDir = path.join(nsDir, "policies");
@@ -217,6 +220,6 @@ setupNamespace("homelab-dan", {
     host: config.requireSecret("kubeLabopsHost"),
     caCert: config.requireSecret("kubeLabopsCaCert"),
     reviewerJwt: config.requireSecret("kubeLabopsReviewerJwt"),
-    importExisting: true,
+    importExisting: false,
   },
 });
