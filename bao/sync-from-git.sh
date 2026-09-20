@@ -126,17 +126,30 @@ PY
   put_auth_role "$BAO_AUTH_MOUNT" "$role" "$role_json"
 }
 
-# Write Kubernetes role
-write_kubernetes_role() {
-  if [[ ! -f "$ROOT/kubernetes/labops-eso-litellm.json" ]]; then
+# Write namespace-specific Kubernetes roles
+write_namespace_kubernetes_roles() {
+  local ns="$1"
+  local ns_dir="$ROOT/namespaces/$ns"
+  local mount="${BAO_K8S_MOUNT:-kubernetes-labops}"
+
+  echo "==> kubernetes roles ($ns)"
+  if [[ ! -d "$ns_dir/kubernetes" ]]; then
+    echo "  skip (no kubernetes dir)"
     return
   fi
-  local mount="${BAO_K8S_MOUNT:-kubernetes-labops}"
-  local role="${BAO_K8S_ROLE:-eso-litellm}"
-  echo "==> kubernetes role ${role}"
-  local role_json
-  role_json=$(cat "$ROOT/kubernetes/labops-eso-litellm.json")
-  put_auth_role "$mount" "$role" "$role_json"
+
+  local roles_found=0
+  for role_file in "$ns_dir/kubernetes/"*.json; do
+    [[ -f "$role_file" ]] || continue
+    roles_found=1
+    local role_name
+    role_name="$(basename "$role_file" .json)"
+    echo "  writing $mount role $role_name to namespace $ns"
+    BAO_NAMESPACE="$ns" bao write "auth/${mount}/role/${role_name}" @"$role_file"
+  done
+  if [[ "$roles_found" -eq 0 ]]; then
+    echo "  skip (no roles)"
+  fi
 }
 
 # Write namespace-specific policies
@@ -204,6 +217,7 @@ sync_namespaces() {
     echo "=== syncing namespace: $ns ==="
     write_namespace_policies "$ns"
     write_namespace_oidc_roles "$ns"
+    write_namespace_kubernetes_roles "$ns"
   done
 }
 
@@ -215,7 +229,6 @@ main() {
   write_policies
   write_oidc_roles
   write_jwt_ci_role
-  write_kubernetes_role
   
   # Namespace-specific configs
   sync_namespaces

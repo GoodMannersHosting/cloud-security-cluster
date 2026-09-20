@@ -13,6 +13,7 @@ die() { echo "error: $*" >&2; exit 1; }
 
 load_config() {
   export BAO_ADDR="${BAO_ADDR:-https://keeper.goodmanners.services}"
+  export BAO_NAMESPACE="${BAO_NAMESPACE:-homelab-dan}"
   export BAO_K8S_MOUNT="${BAO_K8S_MOUNT:-kubernetes-labops}"
   export BAO_K8S_ROLE="${BAO_K8S_ROLE:-eso-litellm}"
   [[ -n "${BAO_TOKEN:-}" ]] || die "export BAO_TOKEN (root) before running"
@@ -41,14 +42,9 @@ write_kubernetes_config() {
     token_reviewer_jwt="${reviewer_jwt}"
 }
 
-write_policy() {
-  echo "==> policy eso-labops"
-  bao policy write eso-labops "${ROOT}/policies/eso-labops.hcl"
-}
-
 write_role() {
   echo "==> kubernetes role ${BAO_K8S_ROLE}"
-  bao write "auth/${BAO_K8S_MOUNT}/role/${BAO_K8S_ROLE}" @"${ROOT}/kubernetes/labops-eso.json"
+  bao write "auth/${BAO_K8S_MOUNT}/role/${BAO_K8S_ROLE}" @"${ROOT}/namespaces/${BAO_NAMESPACE}/kubernetes/labops-eso.json"
 }
 
 main() {
@@ -57,9 +53,8 @@ main() {
   load_config
   enable_kubernetes_auth
   write_kubernetes_config
-  write_policy
   write_role
-  echo "done. mount=${BAO_K8S_MOUNT} role=${BAO_K8S_ROLE}"
+  echo "done. namespace=${BAO_NAMESPACE} mount=${BAO_K8S_MOUNT} role=${BAO_K8S_ROLE}"
 }
 
 main "$@"
