@@ -1,5 +1,5 @@
 # GitHub Actions CI: sync policies, auth methods, and roles from git.
-# No access to secret data.
+# Explicitly has NO access to secret data — deny is listed last and wins.
 
 # ── Root namespace ─────────────────────────────────────────────────────────────
 
@@ -64,4 +64,15 @@ path "+/auth/+/config" {
 
 path "+/auth" {
   capabilities = ["read"]
+}
+
+# ── Explicit deny: no secret data access ──────────────────────────────────────
+# Defense-in-depth: CI must never read or write secret values.
+
+path "secret/*" {
+  capabilities = ["deny"]
+}
+
+path "+/secret/*" {
+  capabilities = ["deny"]
 }

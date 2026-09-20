@@ -98,7 +98,9 @@ new vault.jwt.AuthBackendRole(
     roleType: "jwt",
     userClaim: ciRaw.user_claim,
     boundAudiences: ciRaw.bound_audiences,
-    boundSubject: ciRaw.bound_subject,
+    // bound_subject is intentionally omitted: the @ORG_ID/REPO_ID format is not
+    // a valid GitHub OIDC sub claim. Pinning is done via bound_claims using the
+    // immutable repository_id and repository_owner_id numeric identifiers.
     boundClaims: ciRaw.bound_claims ? serializeClaims(ciRaw.bound_claims) : undefined,
     boundClaimsType: ciRaw.bound_claims_type,
     tokenPolicies: ([] as string[]).concat(ciRaw.token_policies),

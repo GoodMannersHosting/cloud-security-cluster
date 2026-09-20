@@ -30,7 +30,7 @@ env:
   WORKING_DIRECTORY: infra/openbao
   BAO_ADDR: https://keeper.goodmanners.services
   GITHUB_JWT_MOUNT: jwt
-  GITHUB_JWT_AUDIENCE: https://github.com/GoodMannersHosting
+  GITHUB_JWT_AUDIENCE: https://keeper.goodmanners.services
   JWT_ROLE: github-actions-ci
 
 jobs:
