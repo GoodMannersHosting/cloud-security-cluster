@@ -1,16 +1,16 @@
-# Reader policy for homelab-dan namespace: read-only access to secrets.
+# Reader policy for homelab-dan namespace: read-only access to all secrets.
+# Paths are namespace-relative; no cross-namespace access.
 
 # KV v2: read values only
-path "secret/data/dan/*" {
+path "secret/data/*" {
   capabilities = ["read"]
 }
 
 # Metadata: read and list to browse available keys
-path "secret/metadata/dan/*" {
+path "secret/metadata/*" {
   capabilities = ["read", "list"]
 }
 
-# List top-level KV keys
 path "secret/" {
   capabilities = ["list"]
 }

@@ -1,27 +1,27 @@
-# Admin policy for homelab-dan namespace: full control over namespace secrets and auth.
+# Admin policy for homelab-dan namespace: full control over all secrets and auth.
+# Paths are namespace-relative; no cross-namespace access.
 
 # KV v2: full access including permanent deletion
-path "secret/data/dan/*" {
+path "secret/data/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 
-path "secret/metadata/dan/*" {
+path "secret/metadata/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 
-path "secret/delete/dan/*" {
+path "secret/delete/*" {
   capabilities = ["update"]
 }
 
-path "secret/undelete/dan/*" {
+path "secret/undelete/*" {
   capabilities = ["update"]
 }
 
-path "secret/destroy/dan/*" {
+path "secret/destroy/*" {
   capabilities = ["update"]
 }
 
-# List top-level KV keys
 path "secret/" {
   capabilities = ["list"]
 }
