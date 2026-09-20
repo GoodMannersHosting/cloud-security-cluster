@@ -46,28 +46,19 @@ jobs:
           set -euo pipefail
           # Request OIDC token from GitHub with the configured audience
           echo "Requesting OIDC token from GitHub..."
-          echo "OIDC URL: $ACTIONS_ID_TOKEN_REQUEST_URL"
-          echo "OIDC Token length: ${#ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
-          echo "OIDC Audience: $GITHUB_JWT_AUDIENCE"
           OIDC_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${GITHUB_JWT_AUDIENCE}" \
             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             --max-time 30)
           OIDC_HTTP_CODE=$(echo "$OIDC_RESPONSE" | grep -oP 'HTTP_CODE:\K\d+')
           OIDC_BODY=$(echo "$OIDC_RESPONSE" | grep -v 'HTTP_CODE:')
-          echo "OIDC HTTP code: $OIDC_HTTP_CODE"
-          echo "OIDC body length: $(echo -n "$OIDC_BODY" | wc -c)"
-          # GitHub returns JSON with the token in the "value" field
           OIDC_TOKEN=$(echo "$OIDC_BODY" | jq -r '.value // ""')
-          echo "Got OIDC token from GitHub (length: $(echo -n $OIDC_TOKEN | wc -c))"
           if [[ ${#OIDC_TOKEN} -eq 0 ]]; then
-            echo "WARNING: OIDC token is empty! Full response:"
-            echo "$OIDC_BODY" | head -c 1000
+            echo "WARNING: OIDC token is empty"
+            exit 1
           fi
           
-          # Debug: decode JWT and show claims
-          echo "Decoding JWT to check claims..."
-          echo "$OIDC_TOKEN" | python3 -c "import sys, json, base64; jwt = sys.stdin.read().strip(); parts = jwt.split('.'); payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (4 - len(parts[1]) % 4))); print('JWT payload claims:'); [print(f'  {k}: {v}') for k, v in payload.items()]"
+
           
           # Exchange OIDC token for OpenBao token via JWT auth endpoint
           echo "Logging in to OpenBao with JWT..."
@@ -75,7 +66,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg role "${JWT_ROLE}" --arg jwt "${OIDC_TOKEN}" '{role: $role, jwt: $jwt}')" \
             --max-time 30)
-          echo "JWT login response: ${JWT_LOGIN_RESPONSE}"
           BAO_TOKEN=$(echo "$JWT_LOGIN_RESPONSE" | jq -r '.auth.client_token // .auth.accessor // ""')
           if [[ -z "$BAO_TOKEN" ]]; then
             echo "ERROR: Failed to get OpenBao token from JWT login"
