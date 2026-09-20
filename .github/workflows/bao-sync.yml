@@ -48,8 +48,8 @@ jobs:
           mkdir -p ~/.local/bin
           curl -sSL -o /tmp/openbao.tar.gz \
             https://github.com/openbao/openbao/releases/download/v2.6.2/openbao_2.6.2_linux_amd64.tar.gz
-          tar -xzf /tmp/openbao.tar.gz -C /tmp/
-          mv /tmp/openbao ~/.local/bin/bao
+          tar -xzf /tmp/openbao.tar.gz -C /tmp/ bao
+          mv /tmp/bao ~/.local/bin/bao
           chmod +x ~/.local/bin/bao
           rm /tmp/openbao.tar.gz
 
