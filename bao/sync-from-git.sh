@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Apply policies and auth roles from this directory (CI or local with BAO_TOKEN).
-# Uses raw OpenBao API via curl for all operations (no bao CLI dependency).
-# Supports root namespace and namespaced policies/roles in bao/namespaces/<ns>/.
+# Uses the bao CLI. Supports root namespace and namespaced policies/roles in bao/namespaces/<ns>/.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")") && pwd"
 BAO_AUTH_MOUNT="${BAO_AUTH_MOUNT:-${GITHUB_JWT_MOUNT:-jwt}}"
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -16,42 +15,40 @@ require_token() {
   [[ -n "${BAO_TOKEN}" ]] || die "BAO_TOKEN or VAULT_TOKEN required"
 }
 
-# Authenticate in a specific namespace and return a token
-# Args: namespace
-auth_namespace() {
+# Write policy to root namespace
+put_policy() {
+  local name="$1"
+  local policy_file="$2"
+  echo "  writing policy $name"
+  bao policy write "$name" "$policy_file"
+}
+
+# Write auth role to root namespace
+put_auth_role() {
+  local mount="$1"
+  local role_name="$2"
+  local role_json="$3"
+  echo "  writing $mount role $role_name"
+  echo "$role_json" | bao write "auth/${mount}/role/${role_name}" -
+}
+
+# Write policy to a specific namespace
+put_policy_ns() {
   local ns="$1"
-  echo "  authenticating in namespace $ns"
-  
-  local response
-  response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-    "${BAO_ADDR}/v1/namespace/${ns}/auth/${BAO_AUTH_MOUNT}/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"role\": \"${BAO_CI_ROLE:-github-actions-ci}\", \"jwt\": \"${OIDC_TOKEN}\"}" \
-    --max-time 30)
-  
-  local http_code
-  http_code=$(echo "$response" | grep -oP 'HTTP_CODE:\K\d+')
-  local body
-  body=$(echo "$response" | grep -v 'HTTP_CODE:')
-  
-  if [[ "$http_code" -ne 200 ]]; then
-    echo "  error: HTTP $http_code" 
-    echo "$body" | tail -n 1
-    return 1
-  fi
-  
-  local token
-  token=$(echo "$body" | python3 -c "
-import json, sys
-try:
-    doc = json.load(sys.stdin)
-    print(doc.get('auth', {}).get('client_token', ''))
-except:
-    print('')
-" 2>/dev/null)
-  
-  [[ -n "$token" ]] || { echo "  error: no token returned"; return 1; }
-  echo "$token"
+  local name="$2"
+  local policy_file="$3"
+  echo "  writing policy $name to namespace $ns"
+  bao -namespace="$ns" policy write "$name" "$policy_file"
+}
+
+# Write auth role to a specific namespace
+put_auth_role_ns() {
+  local ns="$1"
+  local mount="$2"
+  local role_name="$3"
+  local role_json="$4"
+  echo "  writing $mount role $role_name to namespace $ns"
+  echo "$role_json" | bao -namespace="$ns" write "auth/${mount}/role/${role_name}" -
 }
 
 # Substitute Authentik client ID in role JSON
@@ -61,116 +58,7 @@ import json, sys
 doc = json.load(open(sys.argv[1]))
 doc['bound_audiences'] = [sys.argv[2]]
 json.dump(doc, sys.stdout)
-" "$1" "$2"
-}
-
-# PUT policy to specified namespace path
-# Args: namespace_path policy_name policy_file
-# namespace_path is empty for root, or "namespace/<ns>" for child namespaces
-put_policy() {
-  local ns_path="$1"
-  local name="$2"
-  local policy_file="$3"
-  local path_prefix=""
-  if [[ -n "$ns_path" ]]; then
-    path_prefix="/$ns_path"
-  fi
-  
-  echo "  writing policy $name${path_prefix:+ to $ns_path}"
-  
-  local json_body
-  json_body=$(python3 -c "
-import json, sys
-with open(sys.argv[1]) as f:
-    content = f.read()
-print(json.dumps({'policy': content}))
-" "$policy_file")
-  
-  local response
-  response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
-    "${BAO_ADDR}/v1${path_prefix}/sys/policies/acl/${name}" \
-    -H "X-Vault-Token: ${BAO_TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "$json_body" \
-    --max-time 30)
-  
-  local http_code
-  http_code=$(echo "$response" | grep -oP 'HTTP_CODE:\K\d+')
-  if [[ "$http_code" -ne 204 ]]; then
-    echo "  error: HTTP $http_code"
-    echo "$response" | grep -v 'HTTP_CODE:' | tail -n 1
-    exit 1
-  fi
-}
-
-# PUT auth role to specified namespace path
-# Args: namespace_path auth_mount role_name role_json
-put_auth_role() {
-  put_auth_role_ns "$1" "$2" "$3" "$4" "${BAO_TOKEN}"
-}
-
-# PUT auth role with explicit namespace and token
-# Args: namespace auth_mount role_name role_json token
-put_auth_role_ns() {
-  local ns="$1"
-  local auth_mount="$2"
-  local role_name="$3"
-  local role_json="$4"
-  local token="$5"
-  
-  echo "  writing $auth_mount role $role_name to namespace $ns"
-  local response
-  response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
-    "${BAO_ADDR}/v1/auth/${auth_mount}/role/${role_name}" \
-    -H "X-Vault-Namespace: ${ns}" \
-    -H "X-Vault-Token: ${token}" \
-    -H "Content-Type: application/json" \
-    -d "$role_json" \
-    --max-time 30)
-  
-  local http_code
-  http_code=$(echo "$response" | grep -oP 'HTTP_CODE:\K\d+')
-  if [[ "$http_code" -ne 204 ]]; then
-    echo "  error: HTTP $http_code"
-    echo "$response" | grep -v 'HTTP_CODE:' | tail -n 1
-    exit 1
-  fi
-}
-
-# PUT policy with explicit namespace and token
-# Args: namespace policy_name policy_file token
-put_policy_ns() {
-  local ns="$1"
-  local name="$2"
-  local policy_file="$3"
-  local token="$4"
-  
-  echo "  writing policy $name to namespace $ns"
-  
-  local json_body
-  json_body=$(python3 -c "
-import json, sys
-with open(sys.argv[1]) as f:
-    content = f.read()
-print(json.dumps({'policy': content}))
-" "$policy_file")
-  
-  local response
-  response=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
-    "${BAO_ADDR}/v1/sys/policies/acl/${name}" \
-    -H "X-Vault-Namespace: ${ns}" \
-    -H "X-Vault-Token: ${token}" \
-    -H "Content-Type: application/json" \
-    -d "$json_body" \
-    --max-time 30)
-  
-  local http_code
-  http_code=$(echo "$response" | grep -oP 'HTTP_CODE:\K\d+')
-  if [[ "$http_code" -ne 204 ]]; then
-    echo "  error: HTTP $http_code"
-    echo "$response" | grep -v 'HTTP_CODE:' | tail -n 1
-    exit 1
-  fi
+" "$1" "${AUTHENTIK_CLIENT_ID:-}"
 }
 
 # Write root namespace policies
@@ -181,7 +69,7 @@ write_policies() {
     [[ -f "$policy" ]] || continue
     policies_found=1
     name="$(basename "$policy" .hcl)"
-    put_policy "" "$name" "$policy"
+    put_policy "$name" "$policy"
   done
   if [[ "$policies_found" -eq 0 ]]; then
     echo "  skip (no policies)"
@@ -201,8 +89,8 @@ write_oidc_roles() {
     [[ -f "$role_file" ]] || continue
     roles_found=1
     local role_json
-    role_json=$(subst_client_id "$role_file" "$AUTHENTIK_CLIENT_ID")
-    put_auth_role "" "oidc" "$role" "$role_json"
+    role_json=$(subst_client_id "$role_file")
+    put_auth_role "oidc" "$role" "$role_json"
   done
   if [[ "$roles_found" -eq 0 ]]; then
     echo "  skip (no roles)"
@@ -216,13 +104,11 @@ write_jwt_ci_role() {
   fi
   local role="${BAO_CI_ROLE:-github-actions-ci}"
   echo "==> jwt role ${role}"
-  export ROOT
-  export GITHUB_JWT_AUDIENCE="${GITHUB_JWT_AUDIENCE:-${BAO_OIDC_AUDIENCE:-https://github.com/GoodMannersHosting}}"
   local role_json
   role_json=$(python3 - <<'PY'
-import json, os, pathlib
-root = pathlib.Path(os.environ["ROOT"])
-aud = os.environ["GITHUB_JWT_AUDIENCE"]
+import json, pathlib
+root = pathlib.Path(".") / "bao"
+aud = "https://github.com/GoodMannersHosting"
 doc = json.loads((root / "jwt/github-actions-ci.json").read_text())
 doc["bound_audiences"] = [aud]
 if "bound_claims" in doc:
@@ -232,7 +118,7 @@ if "bound_subject" in doc:
 print(json.dumps(doc))
 PY
 )
-  put_auth_role "" "$BAO_AUTH_MOUNT" "$role" "$role_json"
+  put_auth_role "$BAO_AUTH_MOUNT" "$role" "$role_json"
 }
 
 # Write Kubernetes role
@@ -245,7 +131,7 @@ write_kubernetes_role() {
   echo "==> kubernetes role ${role}"
   local role_json
   role_json=$(cat "$ROOT/kubernetes/labops-eso-litellm.json")
-  put_auth_role "" "$mount" "$role" "$role_json"
+  put_auth_role "$mount" "$role" "$role_json"
 }
 
 # Write namespace-specific policies
@@ -259,16 +145,12 @@ write_namespace_policies() {
     return
   fi
   
-  # Authenticate in this namespace to get namespace-scoped token
-  local ns_token
-  ns_token=$(auth_namespace "$ns") || exit 1
-  
   local policies_found=0
   for policy in "$ns_dir/policies/"*.hcl; do
     [[ -f "$policy" ]] || continue
     policies_found=1
     name="$(basename "$policy" .hcl)"
-    put_policy_ns "$ns" "$name" "$policy" "$ns_token"
+    put_policy_ns "$ns" "$name" "$policy"
   done
   if [[ "$policies_found" -eq 0 ]]; then
     echo "  skip (no policies)"
@@ -290,18 +172,14 @@ write_namespace_oidc_roles() {
     return
   fi
   
-  # Authenticate in this namespace to get namespace-scoped token
-  local ns_token
-  ns_token=$(auth_namespace "$ns") || exit 1
-  
   local roles_found=0
   for role_file in "$ns_dir/roles/"*.json; do
     [[ -f "$role_file" ]] || continue
     roles_found=1
     role="$(basename "$role_file" .json)"
     local role_json
-    role_json=$(subst_client_id "$role_file" "$AUTHENTIK_CLIENT_ID")
-    put_auth_role_ns "$ns" "oidc" "$role" "$role_json" "$ns_token"
+    role_json=$(subst_client_id "$role_file")
+    put_auth_role_ns "$ns" "oidc" "$role" "$role_json"
   done
   if [[ "$roles_found" -eq 0 ]]; then
     echo "  skip (no roles)"
@@ -325,7 +203,7 @@ sync_namespaces() {
 }
 
 main() {
-  command -v curl >/dev/null 2>&1 || die "missing curl"
+  command -v bao >/dev/null 2>&1 || die "missing bao CLI"
   command -v python3 >/dev/null 2>&1 || die "missing python3"
   require_token
   
