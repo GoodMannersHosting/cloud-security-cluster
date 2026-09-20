@@ -42,13 +42,13 @@ write_kubernetes_config() {
 }
 
 write_policy() {
-  echo "==> policy eso-labops-litellm"
-  bao policy write eso-labops-litellm "${ROOT}/policies/eso-labops-litellm.hcl"
+  echo "==> policy eso-labops"
+  bao policy write eso-labops "${ROOT}/policies/eso-labops.hcl"
 }
 
 write_role() {
   echo "==> kubernetes role ${BAO_K8S_ROLE}"
-  bao write "auth/${BAO_K8S_MOUNT}/role/${BAO_K8S_ROLE}" @"${ROOT}/kubernetes/labops-eso-litellm.json"
+  bao write "auth/${BAO_K8S_MOUNT}/role/${BAO_K8S_ROLE}" @"${ROOT}/kubernetes/labops-eso.json"
 }
 
 main() {
