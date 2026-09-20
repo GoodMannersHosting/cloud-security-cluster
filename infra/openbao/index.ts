@@ -52,7 +52,7 @@ function jsonFiles(dir: string): string[] {
 // ─── Root namespace ───────────────────────────────────────────────────────────
 // VAULT_TOKEN is read from env by the provider automatically.
 
-const rootProvider = new vault.Provider("root", { address, token: vaultToken });
+const rootProvider = new vault.Provider("root", { address, token: vaultToken, skipChildToken: true });
 
 // Policies
 const rootPoliciesDir = path.join(baoRoot, "policies");
@@ -124,7 +124,7 @@ function setupNamespace(
   opts: { k8s?: K8sConfig } = {}
 ): void {
   const nsDir = path.join(baoRoot, "namespaces", ns);
-  const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns, token: vaultToken });
+  const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns, token: vaultToken, skipChildToken: true });
 
   // Policies
   const policiesDir = path.join(nsDir, "policies");
@@ -168,7 +168,7 @@ function setupNamespace(
     const backend = new vault.AuthBackend(
       `${ns}-k8s-${mount}`,
       { type: "kubernetes", path: mount },
-      { provider, ...(importExisting ? { import: `${mount}/` } : {}) }
+      { provider, ignoreChanges: ["tune"], ...(importExisting ? { import: `${mount}/` } : {}) }
     );
 
     new vault.kubernetes.AuthBackendConfig(

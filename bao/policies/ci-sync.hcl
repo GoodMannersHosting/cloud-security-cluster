@@ -37,3 +37,9 @@ path "+/auth/+/config" {
 path "+/auth" {
   capabilities = ["read"]
 }
+
+# Auth backend tune settings (Pulumi vault provider v6 diffs tune on every run
+# due to a provider bug where tune is not written back to state after update).
+path "+/sys/auth/+/tune" {
+  capabilities = ["create", "read", "update"]
+}
