@@ -200,6 +200,17 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
     skipChildToken: true,
   });
 
+  // Each namespace needs its own KV engine; mounts are namespace-local.
+  new vault.Mount(
+    `${ns}-secret`,
+    {
+      path: "secret",
+      type: "kv-v2",
+      description: `KV v2 secrets for ${ns}`,
+    },
+    { provider, import: "secret" }
+  );
+
   // Policies
   const policiesDir = path.join(nsDir, "policies");
   for (const f of hclFiles(policiesDir)) {
