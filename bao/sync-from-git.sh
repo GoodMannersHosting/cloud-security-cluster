@@ -126,6 +126,33 @@ PY
   put_auth_role "$BAO_AUTH_MOUNT" "$role" "$role_json"
 }
 
+# Enable and configure the kubernetes auth mount in a namespace (idempotent)
+setup_namespace_kubernetes_mount() {
+  local ns="$1"
+  local mount="${BAO_K8S_MOUNT:-kubernetes-labops}"
+
+  # Skip if cluster credentials aren't provided
+  [[ -n "${KUBE_HOST:-}" ]] || { echo "  skip kubernetes mount config (KUBE_HOST unset)"; return; }
+  [[ -n "${KUBE_CA_CERT:-}" ]] || { echo "  skip kubernetes mount config (KUBE_CA_CERT unset)"; return; }
+  [[ -n "${KUBE_REVIEWER_JWT:-}" ]] || { echo "  skip kubernetes mount config (KUBE_REVIEWER_JWT unset)"; return; }
+
+  echo "==> kubernetes auth mount ($ns/$mount)"
+
+  # Enable mount if not already present
+  if ! BAO_NAMESPACE="$ns" bao auth list -format=json 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); exit(0 if '${mount}/' in d else 1)" 2>/dev/null; then
+    echo "  enabling auth mount ${mount}"
+    BAO_NAMESPACE="$ns" bao auth enable -path="${mount}" kubernetes
+  else
+    echo "  auth mount ${mount} already enabled"
+  fi
+
+  echo "  writing kubernetes config"
+  BAO_NAMESPACE="$ns" bao write "auth/${mount}/config" \
+    kubernetes_host="${KUBE_HOST}" \
+    kubernetes_ca_cert="$(echo "${KUBE_CA_CERT}" | base64 -d)" \
+    token_reviewer_jwt="${KUBE_REVIEWER_JWT}"
+}
+
 # Write namespace-specific Kubernetes roles
 write_namespace_kubernetes_roles() {
   local ns="$1"
@@ -217,6 +244,7 @@ sync_namespaces() {
     echo "=== syncing namespace: $ns ==="
     write_namespace_policies "$ns"
     write_namespace_oidc_roles "$ns"
+    setup_namespace_kubernetes_mount "$ns"
     write_namespace_kubernetes_roles "$ns"
   done
 }

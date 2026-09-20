@@ -1,0 +1,10 @@
+config:
+  aws:region: us-east-1
+  keeper-openbao:address: https://keeper.goodmanners.services
+secretsprovider: awskms://alias/pulumi-state?region=us-east-1
+# encryptedkey is generated on first `pulumi stack init --secrets-provider=...`
+# Run: pulumi stack init prod --secrets-provider=awskms://alias/pulumi-state?region=us-east-1
+# Then: pulumi config set --secret authentikClientId <value>
+#       pulumi config set --secret kubeLabopsHost    <value>
+#       pulumi config set --secret kubeLabopsCaCert  <base64-pem>
+#       pulumi config set --secret kubeLabopsReviewerJwt <value>

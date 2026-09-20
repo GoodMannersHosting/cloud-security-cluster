@@ -8,11 +8,14 @@ on:
       - "bao/roles/**"
       - "bao/namespaces/**"
       - "bao/jwt/**"
-      - "bao/kubernetes/**"
-      - "bao/sync-from-git.sh"
-      - "bao/validate-sync.sh"
+      - "infra/openbao/**"
       - ".github/workflows/bao-sync.yml"
   workflow_dispatch:
+    inputs:
+      preview_only:
+        description: "Run pulumi preview instead of up"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,6 +26,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  PULUMI_STACK: prod
+  WORKING_DIRECTORY: infra/openbao
   BAO_ADDR: https://keeper.goodmanners.services
   GITHUB_JWT_MOUNT: jwt
   GITHUB_JWT_AUDIENCE: https://github.com/GoodMannersHosting
@@ -31,36 +36,30 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Cache OpenBao CLI
-        id: cache-bao
-        uses: actions/cache@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          path: ~/.local/bin/bao
-          key: openbao-2.6.2-linux-amd64
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: infra/openbao/package-lock.json
 
-      - name: Install OpenBao CLI
-        if: steps.cache-bao.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.local/bin
-          curl -sSL -o /tmp/openbao.tar.gz \
-            https://github.com/openbao/openbao/releases/download/v2.6.2/openbao_2.6.2_linux_amd64.tar.gz
-          tar -xzf /tmp/openbao.tar.gz -C /tmp/ bao
-          mv /tmp/bao ~/.local/bin/bao
-          chmod +x ~/.local/bin/bao
-          rm /tmp/openbao.tar.gz
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Add bao to PATH
-        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Validate manifests (pre-auth)
-        run: bash bao/validate-sync.sh
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: gha-keeper-openbao
 
       - name: Authenticate to OpenBao (GitHub OIDC)
-        id: auth
+        working-directory: "."
         run: |
           set -euo pipefail
 
@@ -84,20 +83,33 @@ jobs:
             exit 1
           fi
 
-          # Mask the token so it never appears in logs
           echo "::add-mask::${BAO_TOKEN}"
-          echo "BAO_TOKEN=${BAO_TOKEN}" >> "$GITHUB_ENV"
+          # The vault Pulumi provider reads VAULT_TOKEN automatically
           echo "VAULT_TOKEN=${BAO_TOKEN}" >> "$GITHUB_ENV"
+          echo "VAULT_ADDR=${BAO_ADDR}" >> "$GITHUB_ENV"
           echo "Authenticated to OpenBao"
 
-      - name: Apply policies and roles
+      - name: Resolve Pulumi command
+        id: cmd
+        working-directory: "."
         env:
-          AUTHENTIK_CLIENT_ID: ${{ secrets.AUTHENTIK_CLIENT_ID }}
-        run: bash bao/sync-from-git.sh
-
-      - name: Post-sync smoke test
+          EVENT_NAME: ${{ github.event_name }}
+          PREVIEW_ONLY: ${{ github.event.inputs.preview_only }}
         run: |
           set -euo pipefail
-          bao read sys/policies/acl/ci-sync >/dev/null
-          bao read "auth/${GITHUB_JWT_MOUNT}/role/${JWT_ROLE}" >/dev/null
-          echo "smoke ok"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${PREVIEW_ONLY}" = "true" ]; then
+            echo "command=preview" >> "${GITHUB_OUTPUT}"
+          else
+            echo "command=up" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Pulumi
+        uses: pulumi/actions@8582a9e8cc630786854029b4e09281acd6794b58 # v6.6.1
+        with:
+          command: ${{ steps.cmd.outputs.command }}
+          stack-name: ${{ env.PULUMI_STACK }}
+          work-dir: ${{ env.WORKING_DIRECTORY }}
+          cloud-url: s3://pulumi-state-2e089842
+          upsert: false
+        # State in S3, secrets via KMS — both accessed via AWS OIDC above.
+        # No PULUMI_ACCESS_TOKEN needed.
