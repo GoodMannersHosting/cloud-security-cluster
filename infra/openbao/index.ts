@@ -6,7 +6,10 @@ import * as path from "path";
 const config = new pulumi.Config();
 const baoRoot = path.resolve(__dirname, "../../bao");
 const address = config.get("address") ?? "https://keeper.goodmanners.services";
-const authentikClientId = config.requireSecret("authentikClientId");
+// requireSecret's TypeScript overload widens to Output<string|undefined> in some
+// SDK versions; cast to the correct runtime type to satisfy vault.jwt.AuthBackend.
+const authentikClientId     = config.requireSecret("authentikClientId")     as unknown as pulumi.Output<string>;
+const authentikClientSecret = config.requireSecret("authentikClientSecret") as unknown as pulumi.Output<string>;
 // VAULT_TOKEN is set by the CI auth step (or locally via `export VAULT_TOKEN=...`).
 // @pulumi/vault v6 requires token to be passed explicitly in ProviderArgs.
 const vaultToken = process.env["VAULT_TOKEN"] ?? "";
@@ -77,9 +80,17 @@ const TUNE_K8S = {
   listingVisibility: "hidden",
 } as const;
 
+// ─── Shared OIDC config (same Authentik app used by all namespaces) ────────────
+
+const AUTHENTIK_DISCOVERY_URL = "https://auth.goodmanners.services/application/o/keeper/";
+
 // ─── Root namespace ───────────────────────────────────────────────────────────
 
-const rootProvider = new vault.Provider("root", { address, token: vaultToken, skipChildToken: true });
+const rootProvider = new vault.Provider("root", {
+  address,
+  token: vaultToken,
+  skipChildToken: true,
+});
 
 // Policies
 const rootPoliciesDir = path.join(baoRoot, "policies");
@@ -92,13 +103,18 @@ for (const f of hclFiles(rootPoliciesDir)) {
   );
 }
 
-// Root OIDC auth backend (human login via Authentik)
-const rootOidcBackend = new vault.AuthBackend("root-oidc", {
-  type: "oidc",
+// Root OIDC auth backend — full config managed here
+const rootOidcBackend = new vault.jwt.AuthBackend("root-oidc", {
   path: "oidc",
+  type: "oidc",
   description: "Human interactive login via Authentik OIDC",
+  oidcDiscoveryUrl: AUTHENTIK_DISCOVERY_URL,
+  oidcClientId: authentikClientId,
+  oidcClientSecret: authentikClientSecret,
+  defaultRole: "reader",
+  namespaceInState: true,
   tune: TUNE_OIDC,
-}, { provider: rootProvider, import: "oidc/" });
+}, { provider: rootProvider, import: "oidc" });
 
 // OIDC roles
 const rootRolesDir = path.join(baoRoot, "roles");
@@ -108,7 +124,7 @@ for (const f of jsonFiles(rootRolesDir)) {
   new vault.jwt.AuthBackendRole(
     `root-oidc-${roleName}`,
     {
-      backend: rootOidcBackend.path,
+      backend: "oidc",
       roleName,
       roleType: "oidc",
       userClaim: raw.user_claim,
@@ -123,20 +139,23 @@ for (const f of jsonFiles(rootRolesDir)) {
   );
 }
 
-// Root JWT auth backend (GitHub Actions CI)
-const rootJwtBackend = new vault.AuthBackend("root-jwt", {
-  type: "jwt",
+// Root JWT auth backend — GitHub Actions CI
+const rootJwtBackend = new vault.jwt.AuthBackend("root-jwt", {
   path: "jwt",
+  type: "jwt",
   description: "GitHub Actions OIDC JWT authentication for CI/CD",
+  oidcDiscoveryUrl: "https://token.actions.githubusercontent.com",
+  boundIssuer: "https://token.actions.githubusercontent.com",
+  namespaceInState: true,
   tune: TUNE_JWT_CI,
-}, { provider: rootProvider, import: "jwt/" });
+}, { provider: rootProvider, import: "jwt" });
 
 // JWT CI role
 const ciRaw = readJson(path.join(baoRoot, "jwt", "github-actions-ci.json"));
 new vault.jwt.AuthBackendRole(
   "root-jwt-github-actions-ci",
   {
-    backend: rootJwtBackend.path,
+    backend: "jwt",
     roleName: "github-actions-ci",
     roleType: "jwt",
     userClaim: ciRaw.user_claim,
@@ -174,7 +193,12 @@ interface NamespaceOpts {
 
 function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
   const nsDir = path.join(baoRoot, "namespaces", ns);
-  const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns, token: vaultToken, skipChildToken: true });
+  const provider = new vault.Provider(`ns-${ns}`, {
+    address,
+    namespace: ns,
+    token: vaultToken,
+    skipChildToken: true,
+  });
 
   // Policies
   const policiesDir = path.join(nsDir, "policies");
@@ -187,13 +211,17 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
     );
   }
 
-  // OIDC auth backend (human login via Authentik)
-  const oidcBackend = new vault.AuthBackend(`${ns}-oidc`, {
-    type: "oidc",
+  // OIDC auth backend — full config managed here
+  const oidcBackend = new vault.jwt.AuthBackend(`${ns}-oidc`, {
     path: "oidc",
+    type: "oidc",
     description: `Human interactive login for ${ns} via Authentik OIDC`,
+    oidcDiscoveryUrl: AUTHENTIK_DISCOVERY_URL,
+    oidcClientId: authentikClientId,
+    oidcClientSecret: authentikClientSecret,
+    namespaceInState: true,
     tune: TUNE_OIDC,
-  }, { provider, ...(opts.importOidcBackend ? { import: "oidc/" } : {}) });
+  }, { provider, ...(opts.importOidcBackend ? { import: "oidc" } : {}) });
 
   // OIDC roles
   const rolesDir = path.join(nsDir, "roles");
@@ -203,7 +231,7 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
     new vault.jwt.AuthBackendRole(
       `${ns}-oidc-${roleName}`,
       {
-        backend: oidcBackend.path,
+        backend: "oidc",
         roleName,
         roleType: "oidc",
         userClaim: raw.user_claim,
