@@ -284,7 +284,13 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
         tokenReviewerJwt: reviewerJwt,
         issuer: host,
       },
-      { provider, dependsOn: [k8sBackend] }
+      {
+        provider,
+        dependsOn: [k8sBackend],
+        // The long-lived reviewer token is refreshed by the cluster bootstrap.
+        // Do not replace it with an older encrypted Pulumi config value.
+        ignoreChanges: ["tokenReviewerJwt"],
+      }
     );
 
     for (const f of jsonFiles(k8sDir)) {
