@@ -2,10 +2,12 @@
   "role_type": "jwt",
   "user_claim": "actor",
   "bound_audiences": ["https://github.com/GoodMannersHosting"],
-  "bound_subject": "*",
+  "bound_subject": "repo:GoodMannersHosting@88983444/cloud-security-cluster@1166064097:ref:refs/heads/main",
   "bound_claims": {
-    "repository": "GoodMannersHosting/cloud-security-cluster",
-    "ref": "refs/heads/main"
+    "repository_id": "1166064097",
+    "repository_owner_id": "88983444",
+    "ref": "refs/heads/main",
+    "ref_protected": "true"
   },
   "bound_claims_type": "string",
   "token_policies": ["ci-sync"],

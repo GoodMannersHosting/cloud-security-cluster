@@ -120,8 +120,6 @@ doc = json.loads((root / "jwt/github-actions-ci.json").read_text())
 doc["bound_audiences"] = [aud]
 if "bound_claims" in doc:
     doc["bound_claims_type"] = "string"
-if "bound_subject" in doc:
-    del doc["bound_subject"]
 print(json.dumps(doc))
 PY
 )
