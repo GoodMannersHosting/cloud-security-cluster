@@ -4,7 +4,7 @@ name: hcloud-doco-cd
 
 services:
   app:
-    image: ghcr.io/kimdre/doco-cd:0.97.0
+    image: ghcr.io/kimdre/doco-cd:0.119.0@sha256:c0eedd8e81bc7d8dc83753cf0b1c7bdedf588400d826154ccb641b25f12c7770
     container_name: doco-cd
     restart: unless-stopped
     healthcheck:

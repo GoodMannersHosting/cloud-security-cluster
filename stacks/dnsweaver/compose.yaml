@@ -41,7 +41,7 @@ services:
       - /run
 
   dnsweaver:
-    image: ghcr.io/maxfield-allison/dnsweaver:v2.7.1@sha256:9ba1d14f3a9f192eeda16df904f387ddd8634e56e2690f8deaa0b2438e23021f
+    image: ghcr.io/maxfield-allison/dnsweaver:v3.0.0@sha256:b60b3ab0dc9e486de54d2022cccc888d8847ac54a41559ed03b515aa98f85865
     container_name: dnsweaver
     restart: unless-stopped
     depends_on:
