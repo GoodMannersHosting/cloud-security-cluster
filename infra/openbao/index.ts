@@ -115,11 +115,10 @@ interface K8sConfig {
   host: pulumi.Output<string>;
   caCert: pulumi.Output<string>;
   reviewerJwt: pulumi.Output<string>;
-  /** Set true on first run to import existing config + roles into state.
-   * The AuthBackend mount itself is treated as pre-existing infrastructure
-   * and is NOT managed by Pulumi (avoids requiring sys/mounts permissions
-   * in the CI token and eliminates provider-side tune drift). */
-  importExisting?: boolean;
+  /** Set true once to import a pre-existing auth backend mount into state.
+   * After the first successful `pulumi up`, set back to false.
+   * Config and roles are always written (idempotent PUT), never imported. */
+  importBackend?: boolean;
 }
 
 function setupNamespace(
@@ -163,25 +162,39 @@ function setupNamespace(
     );
   }
 
-  // Kubernetes config and roles
-  // The AuthBackend mount is pre-existing infrastructure; Pulumi only manages
-  // the config and roles so the CI token does not need sys/mounts permissions.
+  // Kubernetes auth backend, config, and roles
   if (opts.k8s) {
-    const { mount, host, caCert, reviewerJwt, importExisting } = opts.k8s;
+    const { mount, host, caCert, reviewerJwt, importBackend } = opts.k8s;
     const k8sDir = path.join(nsDir, "kubernetes");
 
+    // Tune values are pinned explicitly to prevent perpetual provider drift
+    // (vault provider v6 does not write tune back to state after refresh).
+    // Values sourced from: bao read -namespace=<ns> sys/mounts/auth/<mount>/tune
+    const backend = new vault.AuthBackend(
+      `${ns}-k8s-${mount}`,
+      {
+        type: "kubernetes",
+        path: mount,
+        tune: {
+          defaultLeaseTtl: "768h",
+          maxLeaseTtl: "768h",
+          tokenType: "default-service",
+        },
+      },
+      { provider, ...(importBackend ? { import: `${mount}/` } : {}) }
+    );
+
+    // Config and roles are always written (idempotent PUT in OpenBao).
+    // We never import them — if they pre-exist, the write is a no-op update.
     new vault.kubernetes.AuthBackendConfig(
       `${ns}-k8s-${mount}-config`,
       {
-        backend: mount,
+        backend: backend.path,
         kubernetesHost: host,
         kubernetesCaCert: caCert,
         tokenReviewerJwt: reviewerJwt,
       },
-      {
-        provider,
-        ...(importExisting ? { import: mount } : {}),
-      }
+      { provider, dependsOn: [backend] }
     );
 
     for (const f of jsonFiles(k8sDir)) {
@@ -190,7 +203,7 @@ function setupNamespace(
       new vault.kubernetes.AuthBackendRole(
         `${ns}-k8s-role-${roleName}`,
         {
-          backend: mount,
+          backend: backend.path,
           roleName,
           boundServiceAccountNames: raw.bound_service_account_names,
           boundServiceAccountNamespaces: raw.bound_service_account_namespaces,
@@ -198,10 +211,7 @@ function setupNamespace(
           tokenTtl:
             typeof raw.ttl === "string" ? parseDuration(raw.ttl) : raw.ttl,
         },
-        {
-          provider,
-          ...(importExisting ? { import: `auth/${mount}/role/${roleName}` } : {}),
-        }
+        { provider, dependsOn: [backend] }
       );
     }
   }
@@ -215,6 +225,6 @@ setupNamespace("homelab-dan", {
     host: config.requireSecret("kubeLabopsHost"),
     caCert: config.requireSecret("kubeLabopsCaCert"),
     reviewerJwt: config.requireSecret("kubeLabopsReviewerJwt"),
-    importExisting: false,
+    importBackend: false,
   },
 });
