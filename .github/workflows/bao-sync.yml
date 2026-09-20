@@ -34,27 +34,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Cache OpenBao CLI
+        id: cache-bao
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/bao
+          key: openbao-2.6.2-linux-amd64
+
       - name: Install OpenBao CLI
-        env:
-          BAO_VERSION: "2.6.2"
+        if: steps.cache-bao.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          cache_dir="$HOME/.cache/openbao"
-          bin_path="$cache_dir/bao"
-          mkdir -p "$cache_dir"
-          if [[ -x "$bin_path" && "$("$bin_path" version 2>/dev/null | head -1)" == *"${BAO_VERSION}"* ]]; then
-            echo "bao ${BAO_VERSION} already cached"
-          else
-            echo "downloading bao ${BAO_VERSION}"
-            curl -sSL -o /tmp/openbao.zip \
-              "https://github.com/openbao/openbao/releases/download/v${BAO_VERSION}/openbao_${BAO_VERSION}_linux_amd64.zip"
-            unzip -q -o /tmp/openbao.zip -d /tmp/openbao-extract/
-            mv /tmp/openbao-extract/openbao "$bin_path"
-            chmod +x "$bin_path"
-            rm -rf /tmp/openbao.zip /tmp/openbao-extract/
-          fi
-          echo "$cache_dir" >> "$GITHUB_PATH"
-          echo "bao $("$bin_path" version | head -1)"
+          mkdir -p ~/.local/bin
+          curl -sSL -o /tmp/openbao.tar.gz \
+            https://github.com/openbao/openbao/releases/download/v2.6.2/openbao_2.6.2_linux_amd64.tar.gz
+          tar -xzf /tmp/openbao.tar.gz -C /tmp/
+          mv /tmp/openbao ~/.local/bin/bao
+          chmod +x ~/.local/bin/bao
+          rm /tmp/openbao.tar.gz
+
+      - name: Add bao to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate manifests (pre-auth)
         run: bash bao/validate-sync.sh
