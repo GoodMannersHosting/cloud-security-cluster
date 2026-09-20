@@ -282,6 +282,7 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
         kubernetesHost: host,
         kubernetesCaCert: caCert,
         tokenReviewerJwt: reviewerJwt,
+        issuer: host,
       },
       { provider, dependsOn: [k8sBackend] }
     );
