@@ -3,7 +3,14 @@
 # Uses the bao CLI. Supports root namespace and namespaced policies/roles in bao/namespaces/<ns>/.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")") && pwd"
+# Ensure Homebrew/Linuxbrew paths are in PATH
+for brew_path in /opt/homebrew/bin /usr/local/bin /home/linuxbrew/.linuxbrew/bin; do
+  if [[ -d "$brew_path" ]] && [[ ":$PATH:" != *":$brew_path:"* ]]; then
+    export PATH="$brew_path:$PATH"
+  fi
+done
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"
 BAO_AUTH_MOUNT="${BAO_AUTH_MOUNT:-${GITHUB_JWT_MOUNT:-jwt}}"
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -203,7 +210,6 @@ sync_namespaces() {
 }
 
 main() {
-  command -v bao >/dev/null 2>&1 || die "missing bao CLI"
   command -v python3 >/dev/null 2>&1 || die "missing python3"
   require_token
   
