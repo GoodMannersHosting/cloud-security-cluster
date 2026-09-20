@@ -45,7 +45,7 @@ put_policy_ns() {
   local name="$2"
   local policy_file="$3"
   echo "  writing policy $name to namespace $ns"
-  bao -namespace="$ns" policy write "$name" "$policy_file"
+  BAO_NAMESPACE="$ns" bao policy write "$name" "$policy_file"
 }
 
 # Write auth role to a specific namespace
@@ -55,7 +55,7 @@ put_auth_role_ns() {
   local role_name="$3"
   local role_json="$4"
   echo "  writing $mount role $role_name to namespace $ns"
-  echo "$role_json" | bao -namespace="$ns" write "auth/${mount}/role/${role_name}" -
+  echo "$role_json" | BAO_NAMESPACE="$ns" bao write "auth/${mount}/role/${role_name}" -
 }
 
 # Substitute Authentik client ID in role JSON
