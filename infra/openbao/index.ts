@@ -115,7 +115,10 @@ interface K8sConfig {
   host: pulumi.Output<string>;
   caCert: pulumi.Output<string>;
   reviewerJwt: pulumi.Output<string>;
-  /** Set true on first run to import existing auth backend + config into state. */
+  /** Set true on first run to import existing config + roles into state.
+   * The AuthBackend mount itself is treated as pre-existing infrastructure
+   * and is NOT managed by Pulumi (avoids requiring sys/mounts permissions
+   * in the CI token and eliminates provider-side tune drift). */
   importExisting?: boolean;
 }
 
@@ -160,28 +163,23 @@ function setupNamespace(
     );
   }
 
-  // Kubernetes auth backend, config, and roles
+  // Kubernetes config and roles
+  // The AuthBackend mount is pre-existing infrastructure; Pulumi only manages
+  // the config and roles so the CI token does not need sys/mounts permissions.
   if (opts.k8s) {
     const { mount, host, caCert, reviewerJwt, importExisting } = opts.k8s;
     const k8sDir = path.join(nsDir, "kubernetes");
 
-    const backend = new vault.AuthBackend(
-      `${ns}-k8s-${mount}`,
-      { type: "kubernetes", path: mount },
-      { provider, ignoreChanges: ["tune"], ...(importExisting ? { import: `${mount}/` } : {}) }
-    );
-
     new vault.kubernetes.AuthBackendConfig(
       `${ns}-k8s-${mount}-config`,
       {
-        backend: backend.path,
+        backend: mount,
         kubernetesHost: host,
         kubernetesCaCert: caCert,
         tokenReviewerJwt: reviewerJwt,
       },
       {
         provider,
-        dependsOn: [backend],
         ...(importExisting ? { import: mount } : {}),
       }
     );
@@ -192,7 +190,7 @@ function setupNamespace(
       new vault.kubernetes.AuthBackendRole(
         `${ns}-k8s-role-${roleName}`,
         {
-          backend: backend.path,
+          backend: mount,
           roleName,
           boundServiceAccountNames: raw.bound_service_account_names,
           boundServiceAccountNamespaces: raw.bound_service_account_namespaces,
@@ -202,10 +200,7 @@ function setupNamespace(
         },
         {
           provider,
-          dependsOn: [backend],
-          ...(importExisting
-            ? { import: `auth/${mount}/role/${roleName}` }
-            : {}),
+          ...(importExisting ? { import: `auth/${mount}/role/${roleName}` } : {}),
         }
       );
     }
