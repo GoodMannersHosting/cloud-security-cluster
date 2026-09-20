@@ -49,8 +49,35 @@ function jsonFiles(dir: string): string[] {
     : [];
 }
 
+// ─── Auth backend tune constants ──────────────────────────────────────────────
+// Tune values are pinned explicitly to prevent perpetual provider drift
+// (vault provider v6 does not write tune back to state after refresh).
+
+/** Human interactive OIDC sessions via Authentik. Tokens are renewable. */
+const TUNE_OIDC = {
+  defaultLeaseTtl: "8h",
+  maxLeaseTtl: "24h",
+  tokenType: "default-service",
+  listingVisibility: "unauth",  // surface in the UI login picker
+} as const;
+
+/** GitHub Actions CI JWT. Short-lived, non-renewable batch tokens. */
+const TUNE_JWT_CI = {
+  defaultLeaseTtl: "10m",
+  maxLeaseTtl: "10m",
+  tokenType: "batch",           // no token store; cannot be renewed
+  listingVisibility: "hidden",
+} as const;
+
+/** Kubernetes service-account auth. SAs re-authenticate; no renewal needed. */
+const TUNE_K8S = {
+  defaultLeaseTtl: "1h",
+  maxLeaseTtl: "24h",
+  tokenType: "batch",
+  listingVisibility: "hidden",
+} as const;
+
 // ─── Root namespace ───────────────────────────────────────────────────────────
-// VAULT_TOKEN is read from env by the provider automatically.
 
 const rootProvider = new vault.Provider("root", { address, token: vaultToken, skipChildToken: true });
 
@@ -65,6 +92,14 @@ for (const f of hclFiles(rootPoliciesDir)) {
   );
 }
 
+// Root OIDC auth backend (human login via Authentik)
+const rootOidcBackend = new vault.AuthBackend("root-oidc", {
+  type: "oidc",
+  path: "oidc",
+  description: "Human interactive login via Authentik OIDC",
+  tune: TUNE_OIDC,
+}, { provider: rootProvider, import: "oidc/" });
+
 // OIDC roles
 const rootRolesDir = path.join(baoRoot, "roles");
 for (const f of jsonFiles(rootRolesDir)) {
@@ -73,7 +108,7 @@ for (const f of jsonFiles(rootRolesDir)) {
   new vault.jwt.AuthBackendRole(
     `root-oidc-${roleName}`,
     {
-      backend: "oidc",
+      backend: rootOidcBackend.path,
       roleName,
       roleType: "oidc",
       userClaim: raw.user_claim,
@@ -88,12 +123,20 @@ for (const f of jsonFiles(rootRolesDir)) {
   );
 }
 
+// Root JWT auth backend (GitHub Actions CI)
+const rootJwtBackend = new vault.AuthBackend("root-jwt", {
+  type: "jwt",
+  path: "jwt",
+  description: "GitHub Actions OIDC JWT authentication for CI/CD",
+  tune: TUNE_JWT_CI,
+}, { provider: rootProvider, import: "jwt/" });
+
 // JWT CI role
 const ciRaw = readJson(path.join(baoRoot, "jwt", "github-actions-ci.json"));
 new vault.jwt.AuthBackendRole(
   "root-jwt-github-actions-ci",
   {
-    backend: "jwt",
+    backend: rootJwtBackend.path,
     roleName: "github-actions-ci",
     roleType: "jwt",
     userClaim: ciRaw.user_claim,
@@ -123,10 +166,13 @@ interface K8sConfig {
   importBackend?: boolean;
 }
 
-function setupNamespace(
-  ns: string,
-  opts: { k8s?: K8sConfig } = {}
-): void {
+interface NamespaceOpts {
+  /** Import a pre-existing OIDC auth backend into state on first run. */
+  importOidcBackend?: boolean;
+  k8s?: K8sConfig;
+}
+
+function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
   const nsDir = path.join(baoRoot, "namespaces", ns);
   const provider = new vault.Provider(`ns-${ns}`, { address, namespace: ns, token: vaultToken, skipChildToken: true });
 
@@ -141,6 +187,14 @@ function setupNamespace(
     );
   }
 
+  // OIDC auth backend (human login via Authentik)
+  const oidcBackend = new vault.AuthBackend(`${ns}-oidc`, {
+    type: "oidc",
+    path: "oidc",
+    description: `Human interactive login for ${ns} via Authentik OIDC`,
+    tune: TUNE_OIDC,
+  }, { provider, ...(opts.importOidcBackend ? { import: "oidc/" } : {}) });
+
   // OIDC roles
   const rolesDir = path.join(nsDir, "roles");
   for (const f of jsonFiles(rolesDir)) {
@@ -149,7 +203,7 @@ function setupNamespace(
     new vault.jwt.AuthBackendRole(
       `${ns}-oidc-${roleName}`,
       {
-        backend: "oidc",
+        backend: oidcBackend.path,
         roleName,
         roleType: "oidc",
         userClaim: raw.user_claim,
@@ -169,19 +223,13 @@ function setupNamespace(
     const { mount, host, caCert, reviewerJwt, importBackend } = opts.k8s;
     const k8sDir = path.join(nsDir, "kubernetes");
 
-    // Tune values are pinned explicitly to prevent perpetual provider drift
-    // (vault provider v6 does not write tune back to state after refresh).
-    // Values sourced from: bao read -namespace=<ns> sys/mounts/auth/<mount>/tune
-    const backend = new vault.AuthBackend(
+    const k8sBackend = new vault.AuthBackend(
       `${ns}-k8s-${mount}`,
       {
         type: "kubernetes",
         path: mount,
-        tune: {
-          defaultLeaseTtl: "768h",
-          maxLeaseTtl: "768h",
-          tokenType: "default-service",
-        },
+        description: `Kubernetes service-account auth for ${ns} (${mount} cluster)`,
+        tune: TUNE_K8S,
       },
       { provider, ...(importBackend ? { import: `${mount}/` } : {}) }
     );
@@ -191,12 +239,12 @@ function setupNamespace(
     new vault.kubernetes.AuthBackendConfig(
       `${ns}-k8s-${mount}-config`,
       {
-        backend: backend.path,
+        backend: k8sBackend.path,
         kubernetesHost: host,
         kubernetesCaCert: caCert,
         tokenReviewerJwt: reviewerJwt,
       },
-      { provider, dependsOn: [backend] }
+      { provider, dependsOn: [k8sBackend] }
     );
 
     for (const f of jsonFiles(k8sDir)) {
@@ -205,7 +253,7 @@ function setupNamespace(
       new vault.kubernetes.AuthBackendRole(
         `${ns}-k8s-role-${roleName}`,
         {
-          backend: backend.path,
+          backend: k8sBackend.path,
           roleName,
           boundServiceAccountNames: raw.bound_service_account_names,
           boundServiceAccountNamespaces: raw.bound_service_account_namespaces,
@@ -213,7 +261,7 @@ function setupNamespace(
           tokenTtl:
             typeof raw.ttl === "string" ? parseDuration(raw.ttl) : raw.ttl,
         },
-        { provider, dependsOn: [backend] }
+        { provider, dependsOn: [k8sBackend] }
       );
     }
   }
@@ -222,6 +270,7 @@ function setupNamespace(
 // ─── Namespaces ───────────────────────────────────────────────────────────────
 
 setupNamespace("homelab-dan", {
+  importOidcBackend: false,
   k8s: {
     mount: "kubernetes-labops",
     host: config.requireSecret("kubeLabopsHost"),
