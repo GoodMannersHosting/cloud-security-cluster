@@ -30,7 +30,7 @@ services:
       - no-new-privileges:true
 
   authoritative:
-    image: docker.io/powerdns/pdns-auth-51:5.1.3@sha256:f976e753a1de8ec62636203ecb12ae5fa3d1055601be167de53f1f673e0abe59
+    image: docker.io/powerdns/pdns-auth-51:5.1.4@sha256:bb5b1c133bcca1dd455075321de7d55db4945a8d7f2ba23339e3c7bbe416b205
     container_name: powerdns-authoritative
     restart: unless-stopped
     depends_on:
@@ -90,7 +90,7 @@ services:
       - traefik.udp.services.powerdns-dns-udp.loadbalancer.server.port=53
 
   poweradmin:
-    image: docker.io/poweradmin/poweradmin:4.3.4@sha256:6650e7d37b62f5c414f59064c677334ecfa928cd5ef5afbd77f6de65d4a526d4
+    image: docker.io/poweradmin/poweradmin:4.4.1@sha256:612ca40271cd3d5f00e0174dbfa5cd2b1b39e9f94fd591dbf37a7b89efd82c24
     container_name: poweradmin
     restart: unless-stopped
     depends_on:
