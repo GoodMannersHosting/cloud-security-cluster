@@ -1,4 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
+import { StackReference } from "@pulumi/pulumi";
 import * as vault from "@pulumi/vault";
 import * as fs from "fs";
 import * as path from "path";
@@ -330,8 +331,8 @@ const awsSecretsConfig = new vault.aws.SecretsEngineConfig("aws", {
 }, { provider: rootProvider });
 
 // Create role for ExternalDNS to assume
-const awsStack = pulumi.stackReference("infra/aws/prod");
-const externalDnsRoleArn = awsStack.output("externalDnsRoute53RoleArn");
+const awsStack = new StackReference("infra/aws/prod");
+const externalDnsRoleArn = awsStack.getOutput("externalDnsRoute53RoleArn");
 
 const externalDnsRole = new vault.aws.SecretsEngineRole("external-dns", {
   backend: awsSecretsEngine.path,
