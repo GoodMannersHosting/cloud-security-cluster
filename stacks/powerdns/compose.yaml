@@ -137,10 +137,6 @@ services:
       PA_OIDC_GENERIC_SCOPES: ${PA_OIDC_GENERIC_SCOPES:-openid profile email groups}
       PA_OIDC_GENERIC_GROUPS_ATTR: ${PA_OIDC_GENERIC_GROUPS_ATTR:-groups}
       PA_APPLICATION_URL: https://poweradmin.goodmanners.services
-      # Writable path for settings.php when root FS is read-only (default is /app/config).
-      PA_CONFIG_PATH: /config/settings.php
-    volumes:
-      - ${POWERADMIN_DATA_ROOT:-/mnt/data/poweradmin}/config:/config
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid
