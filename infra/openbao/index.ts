@@ -325,6 +325,8 @@ const awsSecretsEngine = new vault.aws.SecretsEngine("aws", {
 const awsSecretsConfig = new vault.aws.SecretsEngineConfig("aws", {
   backend: awsSecretsEngine.path,
   region: "us-east-1",
+  accessKey: config.requireSecret("awsAccessKeyId"),
+  secretKey: config.requireSecret("awsSecretAccessKey"),
 }, { provider: rootProvider });
 
 // Create role for ExternalDNS to assume

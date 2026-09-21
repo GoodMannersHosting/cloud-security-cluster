@@ -1,6 +1,10 @@
 config:
   aws:region: us-east-1
   keeper-openbao:address: https://keeper.goodmanners.services
+  keeper-openbao:awsAccessKeyId:
+    secure: v1:Uv7d20gbW49W6CUr:LaIPvqiP30OmmY62OZD/H7706RCot5tFhPY7b4Nt9gxR4kUX+zjJuK06mkEjEAkiOb8txe/wHyU=
+  keeper-openbao:awsSecretAccessKey:
+    secure: v1:2zfybFRXz1KDoL9d:Dn7O2yTpqYNnTwreNLUIgOmhK4+BHltBrxdUidRUO6/F+kLKhjoLhHDCa19tsyGVyNckxylAAHygCEVeIjxGtTtw4nppF5wlddtztCmISvf2i/WowdoA1N8PbK6iC7LDNwW3vNxTizfhNFPcZJP2E7Qb/NPyoFkaONbBXDzQCm6YYgpFSoTbS68TftsI3/hW
   keeper-openbao:authentikClientId:
     secure: v1:Uv7d20gbW49W6CUr:LaIPvqiP30OmmY62OZD/H7706RCot5tFhPY7b4Nt9gxR4kUX+zjJuK06mkEjEAkiOb8txe/wHyU=
   keeper-openbao:kubeLabopsHost:
