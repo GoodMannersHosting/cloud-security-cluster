@@ -313,6 +313,36 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
   }
 }
 
+// ─── AWS Secrets Engine ──────────────────────────────────────────────────────
+
+const awsSecretsEngine = new vault.aws.AuthBackend("aws", {
+  path: "aws",
+  description: "AWS secrets engine for issuing temporary credentials",
+}, { provider: rootProvider, import: "aws" });
+
+// Configure the AWS secrets engine with the OpenBao's AWS credentials
+// These are available as environment variables in the OpenBao container
+const awsSecretsConfig = new vault.aws.AuthBackendConfig("aws", {
+  backend: awsSecretsEngine.path,
+  region: "us-east-1",
+}, { provider: rootProvider });
+
+// Create role for ExternalDNS to assume
+const awsStack = pulumi.stackReference("infra/aws/prod");
+const externalDnsRoleArn = awsStack.output("externalDnsRoute53RoleArn");
+
+const externalDnsRole = new vault.aws.AuthBackendRole("external-dns", {
+  backend: awsSecretsEngine.path,
+  roleName: "external-dns",
+  roleArn: externalDnsRoleArn,
+  credentialType: "assumed_role",
+  ttl: "1h",
+  maxTtl: "12h",
+}, { provider: rootProvider });
+
+export const awsSecretsEnginePath = awsSecretsEngine.path;
+export const externalDnsRoleName = "external-dns";
+
 // ─── Namespaces ───────────────────────────────────────────────────────────────
 
 setupNamespace("homelab-dan", {
