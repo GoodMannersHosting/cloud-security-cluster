@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { createGithubOidc } from "./githubOidc";
 import { createRoute53Dnsweaver } from "./route53Dnsweaver";
+import { createExternalDnsRoute53 } from "./externalDnsRoute53";
 
 const config = new pulumi.Config();
 const awsConfig = new pulumi.Config("aws");
@@ -30,6 +31,11 @@ const dnsweaver = createRoute53Dnsweaver({
   rolesAnywhereTrustAnchorArn,
 });
 
+const externalDns = createExternalDnsRoute53({
+  hostedZoneName,
+  accountNumber: config.require("accountNumber"),
+});
+
 export const awsRegion = awsConfig.get("region") ?? "us-east-1";
 export const githubOidcProviderArn = oidc.providerArn;
 export const githubActionsDeployRoleArn = oidc.deployRoleArn;
@@ -42,3 +48,5 @@ export const dnsweaverUserName = dnsweaver.userName;
 export const dnsweaverAccessKeyId = dnsweaver.accessKeyId;
 export const dnsweaverSecretAccessKey = dnsweaver.secretAccessKey;
 export const dnsweaverRolesAnywhereRoleArn = dnsweaver.rolesAnywhereRoleArn;
+export const externalDnsRoute53RoleArn = externalDns.roleArn;
+export const externalDnsRoute53RoleName = externalDns.roleName;
