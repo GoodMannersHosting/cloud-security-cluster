@@ -57,7 +57,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-    read_only: true
+    
     tmpfs:
       - /tmp:uid=953,gid=953,mode=1777
       - /var/run/pdns:uid=953,gid=953,mode=0755
