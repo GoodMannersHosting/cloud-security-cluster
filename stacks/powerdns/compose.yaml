@@ -137,7 +137,6 @@ services:
       PA_OIDC_GENERIC_SCOPES: ${PA_OIDC_GENERIC_SCOPES:-openid profile email groups}
       PA_OIDC_GENERIC_GROUPS_ATTR: ${PA_OIDC_GENERIC_GROUPS_ATTR:-groups}
       PA_APPLICATION_URL: https://poweradmin.goodmanners.services
-    read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid
       # FrankenPHP/Caddy XDG paths; required with read_only root.
