@@ -4,6 +4,7 @@ import * as pulumi from "@pulumi/pulumi";
 export type ExternalDnsRoute53Args = {
   hostedZoneName: string;
   accountNumber: string;
+  openbaoIamUserId?: string;
 };
 
 export type ExternalDnsRoute53Result = {
@@ -61,16 +62,29 @@ export function createExternalDnsRoute53(
   const role = new aws.iam.Role("external-dns-route53", {
     name: "openbao-external-dns-route53",
     description: "Assumed by OpenBao for ExternalDNS Route53 updates",
-    assumeRolePolicy: JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Principal: { AWS: `arn:aws:iam::${args.accountNumber}:root` },
-          Action: ["sts:AssumeRole"],
-        },
-      ],
-    }),
+    assumeRolePolicy: args.openbaoIamUserId
+      ? JSON.stringify({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Effect: "Allow",
+              Principal: {
+                AWS: `arn:aws:iam::${args.accountNumber}:user/${args.openbaoIamUserId}`,
+              },
+              Action: ["sts:AssumeRole"],
+            },
+          ],
+        })
+      : JSON.stringify({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Effect: "Allow",
+              Principal: { AWS: `arn:aws:iam::${args.accountNumber}:root` },
+              Action: ["sts:AssumeRole"],
+            },
+          ],
+        }),
     tags: {
       ManagedBy: "pulumi",
       Project: "keeper-aws-infra",

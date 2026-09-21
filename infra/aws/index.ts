@@ -34,6 +34,7 @@ const dnsweaver = createRoute53Dnsweaver({
 const externalDns = createExternalDnsRoute53({
   hostedZoneName,
   accountNumber: config.require("accountNumber"),
+  openbaoIamUserId: config.get("openbaoIamUserId"),
 });
 
 export const awsRegion = awsConfig.get("region") ?? "us-east-1";
