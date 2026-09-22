@@ -6,11 +6,16 @@ on:
     paths:
       - "bao/policies/**"
       - "bao/roles/**"
+      - "bao/namespaces/**"
       - "bao/jwt/**"
-      - "bao/sync-from-git.sh"
-      - "bao/validate-sync.sh"
+      - "infra/openbao/**"
       - ".github/workflows/bao-sync.yml"
   workflow_dispatch:
+    inputs:
+      preview_only:
+        description: "Run pulumi preview instead of up"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,54 +26,90 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  PULUMI_STACK: prod
+  WORKING_DIRECTORY: infra/openbao
   BAO_ADDR: https://keeper.goodmanners.services
   GITHUB_JWT_MOUNT: jwt
-  GITHUB_JWT_AUDIENCE: https://github.com/GoodMannersHosting
-  GITHUB_REPOSITORY: GoodMannersHosting/aws-security-cluster
-  GITHUB_REF: refs/heads/main
+  GITHUB_JWT_AUDIENCE: https://keeper.goodmanners.services
   JWT_ROLE: github-actions-ci
-  BAO_CLI_VERSION: "2.6.0"
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Validate manifests (pre-auth)
-        run: bash bao/validate-sync.sh
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: infra/openbao/package-lock.json
 
-      - name: Install OpenBao CLI
-        run: |
-          set -euo pipefail
-          curl -fsSL -o openbao.deb \
-            "https://github.com/openbao/openbao/releases/download/v${BAO_CLI_VERSION}/openbao_${BAO_CLI_VERSION}_linux_amd64.deb"
-          sudo dpkg -i openbao.deb
-          bao version
-          bash bao/validate-sync.sh
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: gha-keeper-openbao
 
       - name: Authenticate to OpenBao (GitHub OIDC)
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ env.BAO_ADDR }}
-          method: jwt
-          path: ${{ env.GITHUB_JWT_MOUNT }}
-          role: ${{ env.JWT_ROLE }}
-          jwtGithubAudience: ${{ env.GITHUB_JWT_AUDIENCE }}
-          exportToken: true
-          exportEnv: false
-
-      - name: Apply policies and roles
-        env:
-          AUTHENTIK_CLIENT_ID: ${{ secrets.AUTHENTIK_CLIENT_ID }}
-          BAO_TOKEN: ${{ env.VAULT_TOKEN }}
-        run: bash bao/sync-from-git.sh
-
-      - name: Post-sync smoke test
-        env:
-          BAO_TOKEN: ${{ env.VAULT_TOKEN }}
+        working-directory: "."
         run: |
           set -euo pipefail
-          bao policy read ci-sync >/dev/null
-          bao read "auth/${GITHUB_JWT_MOUNT}/role/${JWT_ROLE}" >/dev/null
-          echo "smoke ok"
+
+          OIDC_TOKEN=$(curl -sf \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${GITHUB_JWT_AUDIENCE}" \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            | jq -r '.value')
+
+          if [[ -z "$OIDC_TOKEN" || "$OIDC_TOKEN" == "null" ]]; then
+            echo "ERROR: failed to obtain OIDC token" >&2
+            exit 1
+          fi
+
+          BAO_TOKEN=$(curl -sf -X POST "${BAO_ADDR}/v1/auth/${GITHUB_JWT_MOUNT}/login" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg role "${JWT_ROLE}" --arg jwt "${OIDC_TOKEN}" '{role:$role,jwt:$jwt}')" \
+            | jq -r '.auth.client_token')
+
+          if [[ -z "$BAO_TOKEN" || "$BAO_TOKEN" == "null" ]]; then
+            echo "ERROR: failed to obtain OpenBao token" >&2
+            exit 1
+          fi
+
+          echo "::add-mask::${BAO_TOKEN}"
+          # The vault Pulumi provider reads VAULT_TOKEN automatically
+          echo "VAULT_TOKEN=${BAO_TOKEN}" >> "$GITHUB_ENV"
+          echo "VAULT_ADDR=${BAO_ADDR}" >> "$GITHUB_ENV"
+          echo "Authenticated to OpenBao"
+
+      - name: Resolve Pulumi command
+        id: cmd
+        working-directory: "."
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PREVIEW_ONLY: ${{ github.event.inputs.preview_only }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${PREVIEW_ONLY}" = "true" ]; then
+            echo "command=preview" >> "${GITHUB_OUTPUT}"
+          else
+            echo "command=up" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Pulumi
+        uses: pulumi/actions@8582a9e8cc630786854029b4e09281acd6794b58 # v6.6.1
+        with:
+          command: ${{ steps.cmd.outputs.command }}
+          stack-name: ${{ env.PULUMI_STACK }}
+          work-dir: ${{ env.WORKING_DIRECTORY }}
+          cloud-url: s3://pulumi-state-2e089842
+          upsert: false
+        # State in S3, secrets via KMS — both accessed via AWS OIDC above.
+        # No PULUMI_ACCESS_TOKEN needed.

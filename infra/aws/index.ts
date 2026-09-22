@@ -1,8 +1,10 @@
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
+import { local } from "@pulumi/command";
 import { createGithubOidc } from "./githubOidc";
 import { createIdentityCenterAuthentik } from "./identityCenterAuthentik";
 import { createRoute53Dnsweaver } from "./route53Dnsweaver";
+import { createExternalDnsRoute53 } from "./externalDnsRoute53";
 
 const config = new pulumi.Config();
 const awsConfig = new pulumi.Config("aws");
@@ -94,6 +96,25 @@ if (
   scimAttached = icResult.scimAttached;
 }
 
+// Depend on the deploy role's policy attachment so this run's own
+// permissions update (adding these resource ARNs) applies before we
+// try to create them, avoiding a same-run race on a fresh account.
+// IAM changes can take several seconds to propagate to an
+// already-assumed-role session, so also wait a bit after the policy
+// update before creating resources that need the new permissions.
+const waitForIamPropagation = new local.Command("wait-for-iam-propagation", {
+  create: "sleep 15",
+}, { dependsOn: [oidc.deployPolicyAttachment] });
+
+const externalDns = createExternalDnsRoute53(
+  {
+    hostedZoneName,
+    accountNumber: config.require("accountNumber"),
+    openbaoIamUserId: config.get("openbaoIamUserId"),
+  },
+  { dependsOn: [oidc.deployPolicyAttachment, waitForIamPropagation] },
+);
+
 export const awsRegion = awsConfig.get("region") ?? "us-east-1";
 export const githubOidcProviderArn = oidc.providerArn;
 export const githubActionsDeployRoleArn = oidc.deployRoleArn;
@@ -112,3 +133,6 @@ export const icAdminPermissionSetArn = adminPermissionSetArn;
 export const icViewerPermissionSetArn = viewerPermissionSetArn;
 export const icAuthentikApplicationSlug = authentikApplicationSlug;
 export const icScimAttached = scimAttached;
+
+export const externalDnsRoute53RoleArn = externalDns.roleArn;
+export const externalDnsRoute53RoleName = externalDns.roleName;

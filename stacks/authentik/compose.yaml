@@ -2,7 +2,7 @@ name: authentik
 
 services:
   postgresql:
-    image: docker.io/library/postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    image: docker.io/library/postgres:18-alpine@sha256:6c538e7206ea40ff740ef27883529390a690b6ead6ba96b44c67a9f7c638e8fd
     container_name: authentik-postgresql
     restart: unless-stopped
     healthcheck:
@@ -69,7 +69,7 @@ services:
       - authentik
 
   server:
-    image: ghcr.io/goauthentik/server:2026.5.2
+    image: ghcr.io/goauthentik/server:2026.8.3
     container_name: authentik-server
     restart: unless-stopped
     command: server
@@ -118,7 +118,7 @@ services:
       - no-new-privileges:true
 
   worker:
-    image: ghcr.io/goauthentik/server:2026.5.2
+    image: ghcr.io/goauthentik/server:2026.8.3
     container_name: authentik-worker
     restart: unless-stopped
     command: worker

@@ -5,13 +5,14 @@
     "test": "node --import tsx --test identityCenterHelpers.test.ts"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "20.19.43",
     "tsx": "^4.19.0",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "@pulumi/authentik": "file:sdks/authentik",
     "@pulumi/aws": "^6.81",
+    "@pulumi/command": "^1.2.1",
     "@pulumi/pulumi": "^3.147"
   },
   "allowScripts": {

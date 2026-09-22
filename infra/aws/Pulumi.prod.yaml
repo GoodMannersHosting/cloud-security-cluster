@@ -30,5 +30,8 @@ config:
   # Set true only after SCIM has synced aws-admins / aws-viewers into the Identity Store:
   keeper-aws-infra:icAssignmentsEnabled: "true"
   # Tokens: AUTHENTIK_TOKEN + AUTHENTIK_SCIM_TOKEN via env (from OpenBao secret/data/pulumi/authentik in CI); never commit.
+  keeper-aws-infra:accountNumber: "417568418531"
+  # Set to OpenBao IAM user to scope role trust (optional; defaults to account root)
+  # keeper-aws-infra:openbaoIamUserId: openbao
 secretsprovider: awskms://alias/pulumi-state?region=us-east-1
 encryptedkey: AQICAHj9/Os2L4O1FiUsUwz3Q3ThvEfB36WRDNDhSXnDZN//nQE2JnARv1Nd71s8M6M5p0O1AAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQM11PatfbwDvVSzdhoAgEQgDudLEix7z7DG5GCOG7JmbJOtdiLCUixsrETYAGkBDNB0sQyToRkBNu4UShLxI0gScq8i2D2TZCCh/Vlfg==

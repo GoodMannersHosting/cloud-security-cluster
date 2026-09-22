@@ -42,6 +42,22 @@
       "minimumReleaseAge": "7 days"
     },
     {
+      "description": "Group aws-infra workflow GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "matchFileNames": [".github/workflows/aws-infra.yml"],
+      "groupName": "aws-infra workflow",
+      "groupSlug": "aws-infra-workflow",
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Group keeper-aws-infra npm dependencies",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["infra/aws/**"],
+      "groupName": "keeper-aws-infra",
+      "groupSlug": "keeper-aws-infra",
+      "minimumReleaseAge": "7 days"
+    },
+    {
       "description": "Group OpenBao CLI pin in bao-sync workflow",
       "matchManagers": ["custom.regex"],
       "matchFileNames": [".github/workflows/bao-sync.yml"],
@@ -125,6 +141,14 @@
       "matchFileNames": ["stacks/powerdns/**"],
       "groupName": "powerdns stack",
       "groupSlug": "stack-powerdns",
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Group container updates per Compose stack",
+      "matchManagers": ["docker-compose"],
+      "matchFileNames": ["stacks/dnsweaver/**"],
+      "groupName": "dnsweaver stack",
+      "groupSlug": "stack-dnsweaver",
       "minimumReleaseAge": "7 days"
     },
     {

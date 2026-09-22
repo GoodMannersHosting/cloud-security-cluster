@@ -20,16 +20,21 @@ export type GithubOidcResult = {
   providerArn: pulumi.Output<string>;
   deployRoleArn: pulumi.Output<string>;
   deployRoleName: pulumi.Output<string>;
+  /** The deploy role's policy attachment. Resources that need permissions
+   * granted by this policy should `dependsOn` this to avoid racing the
+   * policy update within the same Pulumi run. */
+  deployPolicyAttachment: aws.iam.RolePolicyAttachment;
 };
 
 export function createGithubOidc(args: GithubOidcArgs): GithubOidcResult {
   const providerArn = resolveProviderArn(args.existingProviderArn);
   const role = createDeployRole(providerArn, args);
-  attachDeployPolicy(role, args);
+  const deployPolicyAttachment = attachDeployPolicy(role, args);
   return {
     providerArn,
     deployRoleArn: role.arn,
     deployRoleName: role.name,
+    deployPolicyAttachment,
   };
 }
 
@@ -83,7 +88,10 @@ function createDeployRole(
   });
 }
 
-function attachDeployPolicy(role: aws.iam.Role, args: GithubOidcArgs): void {
+function attachDeployPolicy(
+  role: aws.iam.Role,
+  args: GithubOidcArgs,
+): aws.iam.RolePolicyAttachment {
   const policy = new aws.iam.Policy("github-actions-aws-infra", {
     name: "github-actions-keeper-aws-infra",
     // IAM policy descriptions are immutable; changing this forces replace.
@@ -91,7 +99,7 @@ function attachDeployPolicy(role: aws.iam.Role, args: GithubOidcArgs): void {
     policy: deployPolicyDocument(args.icManagementRoleArn),
     tags: { ManagedBy: "pulumi", Project: "keeper-aws-infra" },
   });
-  new aws.iam.RolePolicyAttachment("github-actions-aws-infra", {
+  return new aws.iam.RolePolicyAttachment("github-actions-aws-infra", {
     role: role.name,
     policyArn: policy.arn,
   });
@@ -110,6 +118,8 @@ function deployPolicyDocument(icManagementRoleArn?: string): string {
     "arn:aws:iam::*:user/keeper/keeper-dnsweaver-route53",
     "arn:aws:iam::*:policy/github-actions-keeper-aws-infra",
     "arn:aws:iam::*:policy/keeper-dnsweaver-route53",
+    "arn:aws:iam::*:role/openbao-external-dns-route53",
+    "arn:aws:iam::*:policy/openbao-external-dns-route53",
   ];
   const statements: object[] = [
       {

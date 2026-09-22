@@ -1,11 +1,12 @@
 {
   "role_type": "jwt",
-  "user_claim": "sub",
-  "bound_audiences": ["https://github.com/GoodMannersHosting"],
-  "bound_subject": "repo:GoodMannersHosting/aws-security-cluster:ref:refs/heads/main",
+  "user_claim": "actor",
+  "bound_audiences": ["https://keeper.goodmanners.services"],
   "bound_claims": {
-    "repository": "GoodMannersHosting/aws-security-cluster",
-    "ref": "refs/heads/main"
+    "repository_id": "1166064097",
+    "repository_owner_id": "88983444",
+    "ref": "refs/heads/main",
+    "ref_protected": "true"
   },
   "bound_claims_type": "string",
   "token_policies": ["ci-sync"],

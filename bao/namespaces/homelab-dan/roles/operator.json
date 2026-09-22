@@ -1,0 +1,14 @@
+{
+  "role_type": "oidc",
+  "user_claim": "sub",
+  "groups_claim": "groups",
+  "policies": "operator",
+  "allowed_redirect_uris": [
+    "https://keeper.goodmanners.services/ui/vault/auth/oidc/oidc/callback",
+    "https://keeper.goodmanners.services/v1/auth/oidc/oidc/callback",
+    "https://keeper.goodmanners.services/v1/auth/oidc/callback",
+    "http://localhost:8250/oidc/callback"
+  ],
+  "bound_claims": { "groups": ["keeper-operator"] },
+  "oidc_scopes": "openid,profile,email,groups"
+}
