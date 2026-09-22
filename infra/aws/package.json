@@ -8,6 +8,7 @@
   "dependencies": {
     "@pulumi/authentik": "file:sdks/authentik",
     "@pulumi/aws": "^6.81",
+    "@pulumi/command": "^1.2.1",
     "@pulumi/pulumi": "^3.147"
   },
   "allowScripts": {
