@@ -14,6 +14,7 @@ export type ExternalDnsRoute53Result = {
 
 export function createExternalDnsRoute53(
   args: ExternalDnsRoute53Args,
+  opts?: pulumi.ComponentResourceOptions,
 ): ExternalDnsRoute53Result {
   const zone = aws.route53.getZoneOutput({
     name: args.hostedZoneName,
@@ -57,7 +58,7 @@ export function createExternalDnsRoute53(
       Project: "keeper-aws-infra",
       Service: "external-dns",
     },
-  });
+  }, opts);
 
   const role = new aws.iam.Role("external-dns-route53", {
     name: "openbao-external-dns-route53",
@@ -90,12 +91,12 @@ export function createExternalDnsRoute53(
       Project: "keeper-aws-infra",
       Service: "external-dns",
     },
-  });
+  }, opts);
 
   new aws.iam.RolePolicyAttachment("external-dns-route53", {
     role: role.name,
     policyArn: policy.arn,
-  });
+  }, opts);
 
   return {
     roleArn: role.arn,
