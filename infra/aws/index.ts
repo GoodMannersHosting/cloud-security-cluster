@@ -31,11 +31,17 @@ const dnsweaver = createRoute53Dnsweaver({
   rolesAnywhereTrustAnchorArn,
 });
 
-const externalDns = createExternalDnsRoute53({
-  hostedZoneName,
-  accountNumber: config.require("accountNumber"),
-  openbaoIamUserId: config.get("openbaoIamUserId"),
-});
+// Depend on the deploy role's policy attachment so this run's own
+// permissions update (adding these resource ARNs) applies before we
+// try to create them, avoiding a same-run race on a fresh account.
+const externalDns = createExternalDnsRoute53(
+  {
+    hostedZoneName,
+    accountNumber: config.require("accountNumber"),
+    openbaoIamUserId: config.get("openbaoIamUserId"),
+  },
+  { dependsOn: [oidc.deployPolicyAttachment] },
+);
 
 export const awsRegion = awsConfig.get("region") ?? "us-east-1";
 export const githubOidcProviderArn = oidc.providerArn;
