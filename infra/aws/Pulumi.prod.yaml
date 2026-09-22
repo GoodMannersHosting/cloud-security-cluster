@@ -11,6 +11,25 @@ config:
   # keeper-aws-infra:rolesAnywhereTrustAnchorArn: arn:aws:rolesanywhere:us-east-1:ACCOUNT:trust-anchor/TA_ID
 
   keeper-aws-infra:githubOidcProviderArn: arn:aws:iam::417568418531:oidc-provider/token.actions.githubusercontent.com
+
+  # Authentik + IAM Identity Center (see docs/superpowers/specs/2026-08-02-authentik-identity-center-design.md)
+  # Org o-2j4dlyoocl: management 977656673179 (Daniel Manners), workload 417568418531 (GoodMannersHosting).
+  keeper-aws-infra:authentikUrl: https://auth.goodmanners.services
+  keeper-aws-infra:icManagementRoleArn: arn:aws:iam::977656673179:role/keeper-ic-pulumi
+  keeper-aws-infra:workloadAccountId: "417568418531"
+  keeper-aws-infra:icInstanceArn: arn:aws:sso:::instance/ssoins-722325f246f3860b
+  # --- From the IC console SP metadata (Change identity source -> External IdP) ---
+  keeper-aws-infra:icAcsUrl: https://us-east-1.signin.aws/platform/saml/acs/75732d656173742d312d71c0ccf5-7616-4c60-9c2b-6c2b9f6796fe
+  keeper-aws-infra:icAudience: https://us-east-1.signin.aws.amazon.com/platform/saml/d-9067963c52
+  # --- From the IC console after "Enable automatic provisioning (SCIM)" ---
+  keeper-aws-infra:icScimUrl: https://scim.us-east-1.api.aws/14c8b428-7061-70e5-b4da-00eea4b787fa/scim/v2
+  # Accounts aws-admins (AdministratorAccess) / aws-viewers (ReadOnlyAccess) are assigned in:
+  keeper-aws-infra:icAssignmentAccountIds:
+    - "417568418531"
+    - "977656673179"
+  # Set true only after SCIM has synced aws-admins / aws-viewers into the Identity Store:
+  keeper-aws-infra:icAssignmentsEnabled: "true"
+  # Tokens: AUTHENTIK_TOKEN + AUTHENTIK_SCIM_TOKEN via env (from OpenBao secret/data/pulumi/authentik in CI); never commit.
   keeper-aws-infra:accountNumber: "417568418531"
   # Set to OpenBao IAM user to scope role trust (optional; defaults to account root)
   # keeper-aws-infra:openbaoIamUserId: openbao

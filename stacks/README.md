@@ -98,6 +98,8 @@ For a greenfield VPS with no existing `/opt/stacks`, use **`stacks/doco-cd/boots
 
 Git-managed blueprints in **`authentik/blueprints/`** mount into the worker at **`/blueprints/custom`**.
 
+AWS SSO via Authentik → IAM Identity Center (SAML + SCIM, permission sets, group assignments) is managed in **[`infra/aws`](../infra/aws)** by Pulumi, not blueprints. Other Authentik apps (OpenBao, Doco-CD, Poweradmin, platform groups) stay blueprint-driven. Bootstrap: root [README.md](../README.md#aws-infra-infraaws).
+
 | Blueprint | Purpose |
 |-----------|---------|
 | `010-platform-groups.yaml` | `platform-admin` group + policy |
