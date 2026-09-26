@@ -185,10 +185,19 @@ interface K8sConfig {
   importBackend?: boolean;
 }
 
+interface AwsConfig {
+  region: string;
+  accessKey: pulumi.Output<string>;
+  secretKey: pulumi.Output<string>;
+  /** ARN for a role the engine's "external-dns" role may assume, if any. */
+  externalDnsRoleArn?: string;
+}
+
 interface NamespaceOpts {
   /** Import a pre-existing OIDC auth backend into state on first run. */
   importOidcBackend?: boolean;
   k8s?: K8sConfig;
+  aws?: AwsConfig;
 }
 
 function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
@@ -316,36 +325,34 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
       );
     }
   }
+
+  // AWS secrets engine (namespace-local — issues temporary credentials for
+  // ExternalDNS and other in-namespace consumers; vault v6 merged
+  // SecretsEngine + SecretsEngineConfig into SecretBackend).
+  // local: false pins the provider's default explicitly — left unset, the
+  // provider reads back `local: false` from state and treats that as a
+  // force-replace diff against "unconfigured".
+  if (opts.aws) {
+    const { region, accessKey, secretKey, externalDnsRoleArn } = opts.aws;
+    const awsSecretBackend = new vault.aws.SecretBackend(`${ns}-aws`, {
+      path: "aws",
+      description: `AWS secrets engine for issuing temporary credentials (${ns})`,
+      region,
+      local: false,
+      accessKey,
+      secretKey,
+    }, { provider });
+
+    if (externalDnsRoleArn) {
+      new vault.aws.SecretBackendRole(`${ns}-aws-external-dns`, {
+        backend: awsSecretBackend.path.apply((p) => p!),
+        name: "external-dns",
+        credentialType: "assumedRole",
+        roleArns: [externalDnsRoleArn],
+      }, { provider });
+    }
+  }
 }
-
-// ─── AWS Secrets Engine ──────────────────────────────────────────────────────
-
-// Mount + configure the AWS secrets engine with OpenBao's AWS credentials
-// (vault v6 merged SecretsEngine + SecretsEngineConfig into SecretBackend)
-// import: "aws" adopts the mount left behind by an earlier partial failure
-// (the mount POST succeeded before a later config/root step errored, so
-// Pulumi never recorded it as created). Remove once this has landed cleanly.
-const awsSecretBackend = new vault.aws.SecretBackend("aws", {
-  path: "aws",
-  description: "AWS secrets engine for issuing temporary credentials",
-  region: "us-east-1",
-  accessKey: config.requireSecret("awsAccessKeyId"),
-  secretKey: config.requireSecret("awsSecretAccessKey"),
-}, { provider: rootProvider, import: "aws" });
-
-// Role for ExternalDNS to assume (ARN comes from config, set by the aws-infra stack)
-const externalDnsRoleArn = config.get("externalDnsRoute53RoleArn");
-if (externalDnsRoleArn) {
-  new vault.aws.SecretBackendRole("external-dns", {
-    backend: awsSecretBackend.path.apply((p) => p!),
-    name: "external-dns",
-    credentialType: "assumedRole",
-    roleArns: [externalDnsRoleArn],
-  }, { provider: rootProvider });
-}
-
-export const awsSecretsEnginePath = awsSecretBackend.path;
-export const externalDnsRoleName = "external-dns";
 
 // ─── Namespaces ───────────────────────────────────────────────────────────────
 
@@ -357,5 +364,11 @@ setupNamespace("homelab-dan", {
     caCert: config.requireSecret("kubeLabopsCaCert"),
     reviewerJwt: config.requireSecret("kubeLabopsReviewerJwt"),
     importBackend: false,
+  },
+  aws: {
+    region: "us-east-1",
+    accessKey: config.requireSecret("awsAccessKeyId"),
+    secretKey: config.requireSecret("awsSecretAccessKey"),
+    externalDnsRoleArn: config.get("externalDnsRoute53RoleArn"),
   },
 });
