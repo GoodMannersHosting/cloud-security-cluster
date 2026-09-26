@@ -15,8 +15,10 @@ path "sys/auth/+" {
 
 # Mount lifecycle for auth and secret engines (root namespace).
 # sys/mounts/{type}/{path} is used for enable/disable/tune/read.
+# sys/mounts/* is root-protected in OpenBao (every verb, including read,
+# requires sudo) — same reasoning as sys/auth/+ above.
 path "sys/mounts/*" {
-  capabilities = ["read", "list"]
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
 }
 
 path "sys/mounts/*/tune" {
@@ -49,7 +51,7 @@ path "+/sys/auth/+" {
 }
 
 path "+/sys/mounts/*" {
-  capabilities = ["read", "list"]
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
 }
 
 path "+/sys/mounts/*/tune" {

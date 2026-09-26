@@ -268,7 +268,6 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
         type: "kubernetes",
         path: mount,
         description: `Kubernetes service-account auth for ${ns} (${mount} cluster)`,
-        namespace: ns,
         tune: TUNE_K8S,
       },
       { provider, ...(importBackend ? { import: `${mount}/` } : {}) }
@@ -280,7 +279,6 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
       `${ns}-k8s-${mount}-config`,
       {
         backend: k8sBackend.path,
-        namespace: ns,
         kubernetesHost: host,
         kubernetesCaCert: caCert,
         tokenReviewerJwt: reviewerJwt,
@@ -302,7 +300,6 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
         `${ns}-k8s-role-${roleName}`,
         {
           backend: k8sBackend.path,
-          namespace: ns,
           roleName,
           boundServiceAccountNames: raw.bound_service_account_names,
           boundServiceAccountNamespaces: raw.bound_service_account_namespaces,
