@@ -201,11 +201,16 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
   });
 
   // Each namespace needs its own KV engine; mounts are namespace-local.
+  // The Vault API mount type is always "kv" — v1 vs v2 is a tune-time option
+  // (options.version), not a separate backend type. Declaring type: "kv-v2"
+  // here would force-replace the existing kv (v1) mount, destroying its data;
+  // "kv" + options.version: "2" upgrades it in place via sys/mounts/*/tune.
   new vault.Mount(
     `${ns}-secret`,
     {
       path: "secret",
-      type: "kv-v2",
+      type: "kv",
+      options: { version: "2" },
       description: `KV v2 secrets for ${ns}`,
     },
     { provider, import: "secret" }
