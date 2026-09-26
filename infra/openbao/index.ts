@@ -347,7 +347,7 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
       new vault.aws.SecretBackendRole(`${ns}-aws-external-dns`, {
         backend: awsSecretBackend.path.apply((p) => p!),
         name: "external-dns",
-        credentialType: "assumedRole",
+        credentialType: "assumed_role",
         roleArns: [externalDnsRoleArn],
       }, { provider });
     }
