@@ -13,20 +13,13 @@ path "sys/auth/+" {
   capabilities = ["create", "read", "update", "delete", "sudo"]
 }
 
-path "sys/mounts/auth/+" {
-  capabilities = ["read"]
+# Mount lifecycle for auth and secret engines (root namespace).
+# sys/mounts/{type}/{path} is used for enable/disable/tune/read.
+path "sys/mounts/*" {
+  capabilities = ["read", "list"]
 }
 
-path "sys/mounts/auth/+/tune" {
-  capabilities = ["create", "read", "update"]
-}
-
-# Secrets engine mount lifecycle (e.g. the aws secrets engine in root).
-path "sys/mounts/secret/+" {
-  capabilities = ["read"]
-}
-
-path "sys/mounts/secret/+/tune" {
+path "sys/mounts/*/tune" {
   capabilities = ["create", "read", "update"]
 }
 
@@ -55,19 +48,11 @@ path "+/sys/auth/+" {
   capabilities = ["create", "read", "update", "delete", "sudo"]
 }
 
-path "+/sys/mounts/auth/+" {
-  capabilities = ["read"]
+path "+/sys/mounts/*" {
+  capabilities = ["read", "list"]
 }
 
-path "+/sys/mounts/auth/+/tune" {
-  capabilities = ["create", "read", "update"]
-}
-
-path "+/sys/mounts/secret/+" {
-  capabilities = ["read"]
-}
-
-path "+/sys/mounts/secret/+/tune" {
+path "+/sys/mounts/*/tune" {
   capabilities = ["create", "read", "update"]
 }
 
