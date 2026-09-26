@@ -10,32 +10,27 @@ Run the Roles Anywhere credential helper in a sidecar sharing the OpenBao networ
 ## Installing external secrets engine plugins (e.g. AWS)
 
 Since ~1.16, secrets engines like `aws` ship as external plugins rather than
-being built into the OpenBao binary — they must be downloaded and registered
-before they can be mounted. Binaries come from
-[openbao/openbao-plugins releases](https://github.com/openbao/openbao-plugins/releases).
+being built into the OpenBao binary. OpenBao 2.6+ supports declaring these
+directly in server config — it pulls the OCI image, verifies the checksum,
+and extracts the binary into `plugin_directory` itself on startup, no manual
+download or `bao plugin register` needed. See `config/openbao.hcl.example`:
 
-On the host (`${OPENBAO_PLUGINS_DIR:-/opt/stacks/openbao/plugins}`):
-
-```bash
-mkdir -p /opt/stacks/openbao/plugins && cd /opt/stacks/openbao/plugins
-VERSION=secrets-aws-v0.3.1
-curl -sLO "https://github.com/openbao/openbao-plugins/releases/download/${VERSION}/openbao-plugin-secrets-aws_linux_amd64_v1.tar.gz"
-curl -sLO "https://github.com/openbao/openbao-plugins/releases/download/${VERSION}/checksums-secrets-aws.txt"
-tar -xzf openbao-plugin-secrets-aws_linux_amd64_v1.tar.gz openbao-plugin-secrets-aws_linux_amd64_v1
-mv openbao-plugin-secrets-aws_linux_amd64_v1 openbao-plugin-secrets-aws
-chmod +x openbao-plugin-secrets-aws
-grep '  openbao-plugin-secrets-aws_linux_amd64_v1$' checksums-secrets-aws.txt  # note the sha256
+```hcl
+plugin "secret" "aws" {
+  image       = "ghcr.io/openbao/openbao-plugin-secrets-aws"
+  version     = "v0.3.1"
+  binary_name = "openbao-plugin-secrets-aws"
+  sha256sum   = "641ae1858c0f660b4c3761286d627e1dcfd33dc35e7c83eb81ca9050b5bdc6d8"
+}
 ```
 
-`docker compose up -d` (picks up the new `/openbao/plugins` mount and
-`plugin_directory` config), then register it in the catalog under the name
-`aws` (the `-command` flag points at the actual binary; the catalog *name*
-is what `infra/openbao/index.ts`'s `vault.aws.SecretBackend` mounts):
+The block's name (`"aws"`) is the catalog name that `vault.aws.SecretBackend`
+in `infra/openbao/index.ts` mounts — nothing else to configure there. Just
+add the block to your real `/opt/stacks/openbao/config/openbao.hcl` and
+`docker compose up -d`; `${OPENBAO_PLUGINS_DIR:-./plugins}` must be writable
+(not `:ro`) since OpenBao writes the downloaded binary there.
 
-```bash
-bao plugin register -sha256=<sha256 from above> -command=openbao-plugin-secrets-aws secret aws
-```
-
-Once registered, the existing `vault.aws.SecretBackend` resource mounts and
-configures it on the next `pulumi up` — no `bao secrets enable` or Pulumi
-changes needed for the plugin install itself.
+To bump the version later, update `version` and `sha256sum` together —
+pull the new tag's `checksums-secrets-aws.txt` from
+[openbao/openbao-plugins releases](https://github.com/openbao/openbao-plugins/releases)
+for the `linux_amd64` entry (matches the OCI image's linux/amd64 layer).

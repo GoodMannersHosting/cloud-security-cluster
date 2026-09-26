@@ -4,10 +4,20 @@ ui = true
 api_addr     = "https://keeper.goodmanners.services"
 cluster_addr = "http://openbao:8201"
 
-# External plugins (e.g. secrets-aws) live here — mounted from
-# ${OPENBAO_PLUGINS_DIR:-./plugins} on the host. Register each binary with
-# `bao plugin register` after placing it here; see stacks/openbao/README.md.
+# External plugins are declared below and OpenBao pulls, verifies, and
+# extracts them here itself on startup — no manual download/register step.
+# ${OPENBAO_PLUGINS_DIR:-./plugins} on the host must be writable (not :ro).
 plugin_directory = "/openbao/plugins"
+
+# secrets-aws for vault.aws.SecretBackend in infra/openbao/index.ts.
+# sha256sum verified against both the GitHub release tarball and the OCI
+# image's linux/amd64 layer for this version — update both if bumping.
+plugin "secret" "aws" {
+  image       = "ghcr.io/openbao/openbao-plugin-secrets-aws"
+  version     = "v0.3.1"
+  binary_name = "openbao-plugin-secrets-aws"
+  sha256sum   = "641ae1858c0f660b4c3761286d627e1dcfd33dc35e7c83eb81ca9050b5bdc6d8"
+}
 
 listener "tcp" {
   address         = "0.0.0.0:8200"
