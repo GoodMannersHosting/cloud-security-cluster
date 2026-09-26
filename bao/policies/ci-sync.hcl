@@ -37,6 +37,17 @@ path "auth" {
   capabilities = ["read"]
 }
 
+# AWS secrets engine's own config/roles (root namespace only — vault.aws.
+# SecretBackend writes root credentials here, separate from the sys/mounts/*
+# lifecycle grant above which only covers mount/unmount/tune).
+path "aws/config/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+path "aws/roles/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+
 # ── Child namespaces ───────────────────────────────────────────────────────────
 # In OpenBao, cross-namespace paths from root are prefixed with the namespace
 # name directly (e.g. "homelab-dan/sys/...").
