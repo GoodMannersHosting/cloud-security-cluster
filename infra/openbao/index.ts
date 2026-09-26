@@ -322,13 +322,16 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
 
 // Mount + configure the AWS secrets engine with OpenBao's AWS credentials
 // (vault v6 merged SecretsEngine + SecretsEngineConfig into SecretBackend)
+// import: "aws" adopts the mount left behind by an earlier partial failure
+// (the mount POST succeeded before a later config/root step errored, so
+// Pulumi never recorded it as created). Remove once this has landed cleanly.
 const awsSecretBackend = new vault.aws.SecretBackend("aws", {
   path: "aws",
   description: "AWS secrets engine for issuing temporary credentials",
   region: "us-east-1",
   accessKey: config.requireSecret("awsAccessKeyId"),
   secretKey: config.requireSecret("awsSecretAccessKey"),
-}, { provider: rootProvider });
+}, { provider: rootProvider, import: "aws" });
 
 // Role for ExternalDNS to assume (ARN comes from config, set by the aws-infra stack)
 const externalDnsRoleArn = config.get("externalDnsRoute53RoleArn");
