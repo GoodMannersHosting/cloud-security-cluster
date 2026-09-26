@@ -319,15 +319,11 @@ function setupNamespace(ns: string, opts: NamespaceOpts = {}): void {
 
 // ─── AWS Secrets Engine ──────────────────────────────────────────────────────
 
-const awsSecretsEngine = new vault.aws.SecretsEngine("aws", {
+// Mount + configure the AWS secrets engine with OpenBao's AWS credentials
+// (vault v6 merged SecretsEngine + SecretsEngineConfig into SecretBackend)
+const awsSecretBackend = new vault.aws.SecretBackend("aws", {
   path: "aws",
   description: "AWS secrets engine for issuing temporary credentials",
-}, { provider: rootProvider, import: "aws" });
-
-// Configure the AWS secrets engine with the OpenBao's AWS credentials
-// These are available as environment variables in the OpenBao container
-const awsSecretsConfig = new vault.aws.SecretsEngineConfig("aws", {
-  backend: awsSecretsEngine.path,
   region: "us-east-1",
   accessKey: config.requireSecret("awsAccessKeyId"),
   secretKey: config.requireSecret("awsSecretAccessKey"),
@@ -337,16 +333,14 @@ const awsSecretsConfig = new vault.aws.SecretsEngineConfig("aws", {
 const awsStack = new StackReference("infra/aws/prod");
 const externalDnsRoleArn = awsStack.getOutput("externalDnsRoute53RoleArn");
 
-const externalDnsRole = new vault.aws.SecretsEngineRole("external-dns", {
-  backend: awsSecretsEngine.path,
-  roleName: "external-dns",
-  roleArn: externalDnsRoleArn,
-  credentialType: "assumed_role",
-  ttl: "1h",
-  maxTtl: "12h",
+const externalDnsRole = new vault.aws.SecretBackendRole("external-dns", {
+  backend: awsSecretBackend.path.apply(p => p!) ,
+  name: "external-dns",
+  credentialType: "assumedRole",
+  roleArns: [externalDnsRoleArn],
 }, { provider: rootProvider });
 
-export const awsSecretsEnginePath = awsSecretsEngine.path;
+export const awsSecretsEnginePath = awsSecretBackend.path;
 export const externalDnsRoleName = "external-dns";
 
 // ─── Namespaces ───────────────────────────────────────────────────────────────
