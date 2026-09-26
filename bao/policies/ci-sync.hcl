@@ -21,6 +21,15 @@ path "sys/mounts/auth/+/tune" {
   capabilities = ["create", "read", "update"]
 }
 
+# Secrets engine mount lifecycle (e.g. the aws secrets engine in root).
+path "sys/mounts/secret/+" {
+  capabilities = ["read"]
+}
+
+path "sys/mounts/secret/+/tune" {
+  capabilities = ["create", "read", "update"]
+}
+
 path "auth/+/role/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
@@ -51,6 +60,14 @@ path "+/sys/mounts/auth/+" {
 }
 
 path "+/sys/mounts/auth/+/tune" {
+  capabilities = ["create", "read", "update"]
+}
+
+path "+/sys/mounts/secret/+" {
+  capabilities = ["read"]
+}
+
+path "+/sys/mounts/secret/+/tune" {
   capabilities = ["create", "read", "update"]
 }
 

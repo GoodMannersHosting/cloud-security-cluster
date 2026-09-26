@@ -334,7 +334,7 @@ const awsStack = new StackReference("infra/aws/prod");
 const externalDnsRoleArn = awsStack.getOutput("externalDnsRoute53RoleArn");
 
 const externalDnsRole = new vault.aws.SecretBackendRole("external-dns", {
-  backend: awsSecretBackend.path.apply(p => p!) ,
+  backend: awsSecretBackend.path.apply((p) => p!),
   name: "external-dns",
   credentialType: "assumedRole",
   roleArns: [externalDnsRoleArn],
