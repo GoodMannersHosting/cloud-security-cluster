@@ -1,5 +1,4 @@
 import * as pulumi from "@pulumi/pulumi";
-import { StackReference } from "@pulumi/pulumi";
 import * as vault from "@pulumi/vault";
 import * as fs from "fs";
 import * as path from "path";
@@ -329,16 +328,16 @@ const awsSecretBackend = new vault.aws.SecretBackend("aws", {
   secretKey: config.requireSecret("awsSecretAccessKey"),
 }, { provider: rootProvider });
 
-// Create role for ExternalDNS to assume
-const awsStack = new StackReference("infra/aws/prod");
-const externalDnsRoleArn = awsStack.getOutput("externalDnsRoute53RoleArn");
-
-const externalDnsRole = new vault.aws.SecretBackendRole("external-dns", {
-  backend: awsSecretBackend.path.apply((p) => p!),
-  name: "external-dns",
-  credentialType: "assumedRole",
-  roleArns: [externalDnsRoleArn],
-}, { provider: rootProvider });
+// Role for ExternalDNS to assume (ARN comes from config, set by the aws-infra stack)
+const externalDnsRoleArn = config.get("externalDnsRoute53RoleArn");
+if (externalDnsRoleArn) {
+  new vault.aws.SecretBackendRole("external-dns", {
+    backend: awsSecretBackend.path.apply((p) => p!),
+    name: "external-dns",
+    credentialType: "assumedRole",
+    roleArns: [externalDnsRoleArn],
+  }, { provider: rootProvider });
+}
 
 export const awsSecretsEnginePath = awsSecretBackend.path;
 export const externalDnsRoleName = "external-dns";
