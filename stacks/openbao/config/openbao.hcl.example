@@ -4,6 +4,11 @@ ui = true
 api_addr     = "https://keeper.goodmanners.services"
 cluster_addr = "http://openbao:8201"
 
+# External plugins (e.g. secrets-aws) live here — mounted from
+# ${OPENBAO_PLUGINS_DIR:-./plugins} on the host. Register each binary with
+# `bao plugin register` after placing it here; see stacks/openbao/README.md.
+plugin_directory = "/openbao/plugins"
+
 listener "tcp" {
   address         = "0.0.0.0:8200"
   cluster_address = "0.0.0.0:8201"

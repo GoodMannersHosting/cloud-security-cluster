@@ -46,6 +46,7 @@ services:
     volumes:
       - ${OPENBAO_CONFIG_DIR:-./config}:/openbao/config:ro
       - ${OPENBAO_AWS_CREDS_DIR:-./aws}:/aws:ro
+      - ${OPENBAO_PLUGINS_DIR:-./plugins}:/openbao/plugins:ro
       - ${OPENBAO_DATA_DIR:-/mnt/data/openbao}:/openbao/data
     networks:
       - openbao
