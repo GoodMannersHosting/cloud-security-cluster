@@ -24,7 +24,7 @@ services:
       - no-new-privileges:true
 
   openbao:
-    image: ghcr.io/openbao/openbao-ubi:2.6.2@sha256:ae0c482ab57c26325c0ecfbc2e09bc2394e4b88bc8ff4c7fcbf39d6adc5d18fc
+    image: ghcr.io/openbao/openbao:2.7.0@sha256:71156a1c6623a5fa3f5e61b0c6a8ead0faf0df29a778339188443551995d1315
     container_name: openbao
     restart: unless-stopped
     depends_on:
