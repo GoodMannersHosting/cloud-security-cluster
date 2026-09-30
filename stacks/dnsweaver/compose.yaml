@@ -91,7 +91,7 @@ services:
       - SETGID
 
   route53-webhook:
-    image: ghcr.io/goodmannershosting/route53-dnsweaver-webhook:0.1.0@sha256:262811a9e52ebd657b65443379e2f30591cbb3847e650bdc9100f3661dc427b9
+    image: ghcr.io/goodmannershosting/route53-dnsweaver-webhook:0.1.1@sha256:3e0e8ab50ddced5f01a7131aafb3fe927ccc4c7d6fb08afe6ad065641325f47f
     container_name: route53-dnsweaver-webhook
     restart: unless-stopped
     env_file:
