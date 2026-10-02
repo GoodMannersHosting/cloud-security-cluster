@@ -41,7 +41,7 @@ GitHub Actions (aws-infra.yml)
        |-> pulumi up (infra/aws, stack prod)
 
 Pulumi module: identityCenterAuthentik.ts
-  Authentik (@pulumiverse/authentik)
+  Authentik (@pulumi/authentik)
     groups: aws-admins, aws-viewers
     SAML provider + application (ACS/issuer from IC)
     SCIM provider bound to that app
@@ -75,7 +75,7 @@ Inputs (config): Authentik URL, management-account role ARN to assume, workload 
 
 ### Authentik provider
 
-`@pulumiverse/authentik` configured from URL + token. CI injects the token from OpenBao into env / provider config (not stored long-term in Pulumi config or git). Local runs export the same env vars.
+`@pulumi/authentik` configured from URL + token. CI injects the token from OpenBao into env / provider config (not stored long-term in Pulumi config or git). Local runs export the same env vars.
 
 ### CI (`.github/workflows/aws-infra.yml`)
 

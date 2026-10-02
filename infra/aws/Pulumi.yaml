@@ -1,6 +1,6 @@
 name: keeper-aws-infra
 runtime: nodejs
-description: AWS IAM for keeper Route53 dnsweaver and GitHub Actions OIDC deploy
+description: AWS IAM for keeper Route53 dnsweaver, ExternalDNS Route53, GitHub Actions OIDC deploy, and Authentik -> IAM Identity Center (SAML + SCIM)
 packages:
   authentik:
     source: terraform-provider

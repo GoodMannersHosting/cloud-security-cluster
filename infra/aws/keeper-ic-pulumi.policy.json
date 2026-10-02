@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "IdentityCenterAdmin",
+      "Effect": "Allow",
+      "Action": ["sso:*", "sso-directory:*", "identitystore:*", "identitystore-auth:*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OrgAndDirectoryRead",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:DescribeOrganization",
+        "organizations:DescribeAccount",
+        "organizations:ListAccounts",
+        "organizations:ListRoots",
+        "ds:DescribeDirectories",
+        "ds:DescribeTrusts"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ServiceLinkedRoleForSSO",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "iam:AWSServiceName": ["sso.amazonaws.com", "scim.amazonaws.com"] } }
+    },
+    {
+      "Sid": "SSOReservedRoleAndSamlProvisioning",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetSAMLProvider",
+        "iam:ListSAMLProviders",
+        "iam:CreateSAMLProvider",
+        "iam:UpdateSAMLProvider",
+        "iam:DeleteSAMLProvider",
+        "iam:GetRole",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:UpdateRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:PutRolePermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:saml-provider/AWSSSO_*",
+        "arn:aws:iam::*:role/aws-reserved/sso.amazonaws.com/*"
+      ]
+    }
+  ]
+}

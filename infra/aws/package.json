@@ -1,8 +1,12 @@
 {
   "name": "keeper-aws-infra",
   "main": "index.ts",
+  "scripts": {
+    "test": "node --import tsx --test identityCenterHelpers.test.ts"
+  },
   "devDependencies": {
     "@types/node": "20.19.43",
+    "tsx": "^4.19.0",
     "typescript": "5.9.3"
   },
   "dependencies": {
