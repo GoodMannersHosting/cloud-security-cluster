@@ -6,7 +6,7 @@
     "@pulumi/vault": "^7.0.0"
   },
   "devDependencies": {
-    "@types/node": "24.13.6",
+    "@types/node": "24.19.0",
     "typescript": "5.9.3"
   }
 }
