@@ -2,7 +2,7 @@
   "name": "hetzner-infra",
   "main": "index.ts",
   "devDependencies": {
-    "@types/node": "24.13.6",
+    "@types/node": "24.19.0",
     "typescript": "5.9.3"
   },
   "dependencies": {
