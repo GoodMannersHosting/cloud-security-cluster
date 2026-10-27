@@ -52,6 +52,25 @@ jobs:
           aws-region: us-east-1
           role-session-name: gha-keeper-aws-infra
 
+      # Set repo variable AUTHENTIK_IC_ENABLED=true after OpenBao secret/data/pulumi/authentik exists.
+      - name: Fetch Authentik tokens from OpenBao
+        if: ${{ vars.AUTHENTIK_IC_ENABLED == 'true' }}
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: https://keeper.goodmanners.services
+          method: jwt
+          path: jwt
+          role: github-actions-aws-infra
+          jwtGithubAudience: https://github.com/GoodMannersHosting
+          exportToken: false
+          secrets: |
+            secret/data/pulumi/authentik api_token | AUTHENTIK_TOKEN ;
+            secret/data/pulumi/authentik scim_token | AUTHENTIK_SCIM_TOKEN
+
+      - name: Set Authentik URL
+        if: ${{ vars.AUTHENTIK_IC_ENABLED == 'true' }}
+        run: echo "AUTHENTIK_URL=https://auth.goodmanners.services" >> "${GITHUB_ENV}"
+
       - name: Resolve Pulumi command
         id: cmd
         env:

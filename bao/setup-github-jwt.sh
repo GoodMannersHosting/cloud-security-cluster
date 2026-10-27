@@ -18,6 +18,7 @@ load_config() {
   export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-GoodMannersHosting/aws-security-cluster}"
   export GITHUB_REF="${GITHUB_REF:-refs/heads/main}"
   export BAO_CI_ROLE="${BAO_CI_ROLE:-github-actions-ci}"
+  export BAO_AWS_INFRA_ROLE="${BAO_AWS_INFRA_ROLE:-github-actions-aws-infra}"
   [[ -n "${BAO_TOKEN:-}" ]] || die "export BAO_TOKEN (root) before running"
 }
 
@@ -63,6 +64,32 @@ write_ci_role() {
   render_ci_role | bao write "auth/${BAO_AUTH_MOUNT}/role/${BAO_CI_ROLE}" -
 }
 
+write_aws_infra_policy() {
+  echo "==> policy ci-aws-infra"
+  bao policy write ci-aws-infra "${ROOT}/policies/ci-aws-infra.hcl"
+}
+
+render_aws_infra_role() {
+  python3 - <<'PY'
+import json, os, pathlib
+root = pathlib.Path(os.environ["ROOT"])
+repo = os.environ["GITHUB_REPOSITORY"]
+ref = os.environ["GITHUB_REF"]
+aud = os.environ["GITHUB_JWT_AUDIENCE"]
+doc = json.loads((root / "jwt/github-actions-aws-infra.json").read_text())
+doc["bound_audiences"] = [aud]
+doc["bound_subject"] = f"repo:{repo}:ref:{ref}"
+doc["bound_claims"] = {"repository": repo, "ref": ref}
+json.dump(doc, __import__("sys").stdout)
+PY
+}
+
+write_aws_infra_role() {
+  echo "==> jwt role ${BAO_AWS_INFRA_ROLE}"
+  export ROOT
+  render_aws_infra_role | bao write "auth/${BAO_AUTH_MOUNT}/role/${BAO_AWS_INFRA_ROLE}" -
+}
+
 main() {
   command -v bao >/dev/null 2>&1 || die "missing bao CLI"
   command -v python3 >/dev/null 2>&1 || die "missing python3"
@@ -71,7 +98,9 @@ main() {
   write_jwt_config
   write_ci_policy
   write_ci_role
-  echo "done. workflow uses mount=${BAO_AUTH_MOUNT} role=${BAO_CI_ROLE} audience=${BAO_OIDC_AUDIENCE}"
+  write_aws_infra_policy
+  write_aws_infra_role
+  echo "done. mount=${BAO_AUTH_MOUNT} audience=${BAO_OIDC_AUDIENCE} roles=${BAO_CI_ROLE},${BAO_AWS_INFRA_ROLE}"
 }
 
 main "$@"
