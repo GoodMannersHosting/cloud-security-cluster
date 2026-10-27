@@ -90,7 +90,7 @@ services:
       - traefik.udp.services.powerdns-dns-udp.loadbalancer.server.port=53
 
   poweradmin:
-    image: docker.io/poweradmin/poweradmin:4.4.1@sha256:612ca40271cd3d5f00e0174dbfa5cd2b1b39e9f94fd591dbf37a7b89efd82c24
+    image: docker.io/poweradmin/poweradmin:4.5.0@sha256:bd17de9900e98b62a9a519520bb194e5670f25aa7d026dbeb4139f9174afbdf4
     container_name: poweradmin
     restart: unless-stopped
     depends_on:
